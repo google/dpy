@@ -1,5 +1,7 @@
 #!/usr/bin/python
 import logging
+import sys
+import threading
 from ioc import *
 
 logging.basicConfig(level=logging.DEBUG)
@@ -61,3 +63,18 @@ try:
   Injectable.value('d', 'Should conflict')
 except KeyError:
   print 'OK: Cannot define the same name twice....'
+
+@Inject
+def PrintThreadName(thread_name=IN):
+  sys.stdout.write('Hello from %s!\n' % thread_name)
+
+class T(threading.Thread):
+  def run(self):
+    thread_name = threading.current_thread().name
+    with InjectScope('scope ' + thread_name):
+      Injectable.value('thread_name', thread_name)
+      for _ in xrange(4):
+        PrintThreadName()
+
+T().start()
+T().start()
