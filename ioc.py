@@ -16,6 +16,7 @@ def Injectable(f):
 
 
 def _InjectableValue(name, v):
+  @Singleton
   def Callable():
     return v
   Callable.__name__ = name
@@ -50,17 +51,18 @@ def Inject(f):
   injections = argspec.args[-len(argspec.defaults):] if argspec.defaults else []
   injections = tuple(injection for i, injection in enumerate(injections)
                      if argspec.defaults[i] is INJECTED)
-  if hasattr(f, '_ioc_injectable'):
-    assert len(argspec.args) == len(injections), 'Injectables must be fully injected.'
-  if hasattr(f, '_ioc_singleton'):
+  if hasattr(c, '_ioc_injectable'):
+    self = 1 if inspect.isclass(c) else 0
+    assert len(argspec.args) - self == len(injections), 'Injectables must be fully injected.'
+  if hasattr(c, '_ioc_singleton'):
     logging.debug(name + ' is a singleton.')
 
     @functools.wraps(f)
     def Wrapper(*args, **kwargs):
-      if not hasattr(f, '_ioc_value'):
+      if not hasattr(c, '_ioc_value'):
         kwargs.update({injection: _GOB[injection]() for injection in injections})
-        f._ioc_value = c(*args, **kwargs)
-      return f._ioc_value
+        c._ioc_value = c(*args, **kwargs)
+      return c._ioc_value
   else:
     logging.debug(name + ' is a factory.')
 
@@ -70,7 +72,7 @@ def Inject(f):
       result = c(*args, **kwargs)
       return result
 
-  if hasattr(f, '_ioc_eager'):
+  if hasattr(c, '_ioc_eager'):
     logging.debug(name + ' is eager.')
     _EAGER.append(Wrapper)
 
