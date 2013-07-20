@@ -2,6 +2,7 @@ import contextlib
 import functools
 import inspect
 import logging
+import threading
 
 
 IN = INJECTED = object()
@@ -42,8 +43,11 @@ class _Scope(object):
   def __str__(self):
     return 'Scope %r : %r' % (self.name, self._GOB.keys())
 
+_ROOT_SCOPE = _Scope('root')
+_DATA = threading.local()
 
-_SCOPES = [_Scope('root')]
+
+_DATA.scopes = [_ROOT_SCOPE]
 
 
 def Inject(f):
@@ -65,7 +69,7 @@ def Inject(f):
   def FillInInjections(injections, arguments):
     for injection in injections:
       if injection in arguments: continue
-      for scope in reversed(_SCOPES):
+      for scope in reversed(_DATA.scopes):
         func = scope.Inspect(injection)
         if func:
           arguments[injection] = func()
@@ -90,7 +94,7 @@ def Inject(f):
 
   if hasattr(c, '_ioc_eager'):
     logging.debug(name + ' is eager.')
-    _SCOPES[-1]._EAGER.append(Wrapper)
+    _DATA.scopes[-1]._EAGER.append(Wrapper)
 
   return Wrapper
 
@@ -98,17 +102,19 @@ def Inject(f):
 @contextlib.contextmanager
 def InjectScope(name):
   scope = _Scope(name)
-  _SCOPES.append(scope)
+  if not hasattr(_DATA, 'scopes'):
+    _DATA.scopes = [_ROOT_SCOPE]
+  _DATA.scopes.append(scope)
   yield scope
-  _SCOPES.pop()
+  _DATA.scopes.pop()
 
 
 def Injectable(f):
-  _SCOPES[-1].Injectable(f)
+  _DATA.scopes[-1].Injectable(f)
 
 
 def _InjectableValue(name, value):
-  _SCOPES[-1].InjectableValue(name, value)
+  _DATA.scopes[-1].InjectableValue(name, value)
 Injectable.value = _InjectableValue
 
 
@@ -124,6 +130,6 @@ def Singleton(f):
 
 def Warmup():
   logging.debug('Warming up ALL')
-  for scope in _SCOPES:
+  for scope in _DATA.scopes:
     scope.Warmup()
   logging.debug('Hot ALL')
