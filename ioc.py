@@ -1,42 +1,49 @@
+import contextlib
 import functools
 import inspect
 import logging
 
 
-INJECTED = object()
-_GOB = {}
-_EAGER = []
+IN = INJECTED = object()
 
 
-def Injectable(f):
-  f._ioc_injectable = True
-  injectable = Inject(f)
-  _GOB[f.__name__] = injectable
-  return injectable
+class _Scope(object):
+
+  def __init__(self, name):
+    self.name = name
+    self._GOB = {}
+    self._EAGER = []
+
+  def InjectableValue(self, name, value):
+    @Singleton
+    def Callable():
+      return value
+    Callable.__name__ = name
+    self.Injectable(Callable)
+
+  def Injectable(self, f):
+    if f.__name__ in self._GOB:
+      raise KeyError('Injectable %r already exist in scope %r.' %
+                     (f.__name__, self.name))
+    f._ioc_injectable = True
+    injectable = Inject(f)
+    self._GOB[f.__name__] = injectable
+    return injectable
+
+  def Inspect(self, name):
+    return self._GOB.get(name)
+
+  def Warmup(self):
+    logging.debug('Warming up: ' + self.name)
+    for eager in self._EAGER:
+      eager()
+    logging.debug('Hot: ' + self.name)
+
+  def __str__(self):
+    return 'Scope %r : %r' % (self.name, self._GOB.keys())
 
 
-def _InjectableValue(name, v):
-  @Singleton
-  def Callable():
-    return v
-  Callable.__name__ = name
-  Injectable(Callable)
-
-Injectable.value = _InjectableValue
-
-def Eager(f):
-  f._ioc_eager = True
-  return f
-
-
-def Singleton(f):
-  f._ioc_singleton = True
-  return f
-
-
-def Warmup():
-  for f in _EAGER:
-    f()
+_SCOPES = [_Scope('root')]
 
 
 def Inject(f):
@@ -54,13 +61,23 @@ def Inject(f):
   if hasattr(c, '_ioc_injectable'):
     self = 1 if inspect.isclass(c) else 0
     assert len(argspec.args) - self == len(injections), 'Injectables must be fully injected.'
-  if hasattr(c, '_ioc_singleton'):
+
+  def FillInInjections(injections, arguments):
+    for injection in injections:
+      if injection in arguments: continue
+      for scope in reversed(_SCOPES):
+        func = scope.Inspect(injection)
+        if func:
+          arguments[injection] = func()
+          break
+
+  if hasattr(f, '_ioc_singleton'):
     logging.debug(name + ' is a singleton.')
 
     @functools.wraps(f)
     def Wrapper(*args, **kwargs):
       if not hasattr(c, '_ioc_value'):
-        kwargs.update({injection: _GOB[injection]() for injection in injections})
+        FillInInjections(injections, kwargs)
         c._ioc_value = c(*args, **kwargs)
       return c._ioc_value
   else:
@@ -68,13 +85,45 @@ def Inject(f):
 
     @functools.wraps(f)
     def Wrapper(*args, **kwargs):
-      kwargs.update({injection: _GOB[injection]() for injection in injections})
-      result = c(*args, **kwargs)
-      return result
+      FillInInjections(injections, kwargs)
+      return c(*args, **kwargs)
 
   if hasattr(c, '_ioc_eager'):
     logging.debug(name + ' is eager.')
-    _EAGER.append(Wrapper)
+    _SCOPES[-1]._EAGER.append(Wrapper)
 
   return Wrapper
 
+
+@contextlib.contextmanager
+def InjectScope(name):
+  scope = _Scope(name)
+  _SCOPES.append(scope)
+  yield scope
+  _SCOPES.pop()
+
+
+def Injectable(f):
+  _SCOPES[-1].Injectable(f)
+
+
+def _InjectableValue(name, value):
+  _SCOPES[-1].InjectableValue(name, value)
+Injectable.value = _InjectableValue
+
+
+def Eager(f):
+  f._ioc_eager = True
+  return f
+
+
+def Singleton(f):
+  f._ioc_singleton = True
+  return f
+
+
+def Warmup():
+  logging.debug('Warming up ALL')
+  for scope in _SCOPES:
+    scope.Warmup()
+  logging.debug('Hot ALL')
