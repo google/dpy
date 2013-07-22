@@ -108,8 +108,7 @@ def Inject(f):
 def Scope(f):
   @functools.wraps(f)
   def Wrapper(*args, **kwargs):
-    scope = _Scope(f.__name__)
-    with scope:
+    with _Scope(f.__name__):
       return f(*args, **kwargs)
   return Wrapper
 
