@@ -80,6 +80,8 @@ def Inject(f):
         if func:
           arguments[injection] = func()
           break
+      else:
+        raise ValueError('The injectable named %r was not found.' % injection)
 
   if hasattr(f, '_ioc_singleton'):
     logging.debug(name + ' is a singleton.')

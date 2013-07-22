@@ -73,6 +73,11 @@ class IocTest(Describe):
       return InjectedFunc()
     expect(InjectedFunc()).toBe(42)
     expect(ScopedFunc()).toBe(32)
+
+  def it_should_require_all_injections(self):
+    @ioc.Inject
+    def Injected(val=ioc.IN): pass
+    expect(Injected).toRaise(ValueError)
       
 
 if __name__ == '__main__':
