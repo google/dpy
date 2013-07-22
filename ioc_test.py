@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import ioc
 from jazz.jazz import *
 from jazz import mock
@@ -60,6 +61,18 @@ class IocTest(Describe):
     expect(spy.call_count).toBe(1)
     foo()
     expect(spy.call_count).toBe(1)
+
+  def it_should_support_multiple_scopes(self):
+    ioc.Injectable.value('val', 42)
+    @ioc.Inject
+    def InjectedFunc(val=ioc.IN):
+      return val
+    @ioc.Scope
+    def ScopedFunc():
+      ioc.Injectable.value('val', 32)
+      return InjectedFunc()
+    expect(InjectedFunc()).toBe(42)
+    expect(ScopedFunc()).toBe(32)
       
 
 if __name__ == '__main__':

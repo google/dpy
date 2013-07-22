@@ -44,19 +44,8 @@ Injectable.value('val', 'Injected[val]')
 
 Warmup()
 
-with InjectScope('for D#1'):
-  Injectable.value('d', 'Injected[d#1]')
-  foo(4)
 foo(4)
 bar(3)
-
-with InjectScope('for D#2'):
-  Injectable.value('d', 'Injected[d#2]')
-  foo(4)
-  with InjectScope('Nested D#1-1') as scope:
-    scope.InjectableValue('d', 'Injected[d#2-1]')
-    foo(4)
-    print scope
 bar(3, val='Overwritten[val]')
 
 try:
@@ -69,12 +58,13 @@ def PrintThreadName(thread_name=IN):
   sys.stdout.write('Hello from %s!\n' % thread_name)
 
 class T(threading.Thread):
+
+  @Scope
   def run(self):
     thread_name = threading.current_thread().name
-    with InjectScope('scope ' + thread_name):
-      Injectable.value('thread_name', thread_name)
-      for _ in xrange(4):
-        PrintThreadName()
+    Injectable.value('thread_name', thread_name)
+    for _ in xrange(4):
+      PrintThreadName()
 
 T().start()
 T().start()

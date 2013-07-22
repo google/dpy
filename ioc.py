@@ -15,11 +15,11 @@ class _Scope(object):
     self._GOB = {}
     self._EAGER = []
 
-  def InjectableValue(self, name, value):
+  def Value(self, name, value):
     @Singleton
-    def Callable():
-      return value
+    def Callable(): pass
     Callable.__name__ = name
+    Callable._ioc_value = value
     self.Injectable(Callable)
 
   def Injectable(self, f):
@@ -43,10 +43,17 @@ class _Scope(object):
   def __str__(self):
     return 'Scope %r : %r' % (self.name, self._GOB.keys())
 
+  def __enter__(self):
+    if not hasattr(_DATA, 'scopes'):
+      _DATA.scopes = [_ROOT_SCOPE]
+    _DATA.scopes.append(self)
+
+  def __exit__(self, t, v, tb):
+    _DATA.scopes.pop()
+
+
 _ROOT_SCOPE = _Scope('root')
 _DATA = threading.local()
-
-
 _DATA.scopes = [_ROOT_SCOPE]
 
 
@@ -99,14 +106,13 @@ def Inject(f):
   return Wrapper
 
 
-@contextlib.contextmanager
-def InjectScope(name):
-  scope = _Scope(name)
-  if not hasattr(_DATA, 'scopes'):
-    _DATA.scopes = [_ROOT_SCOPE]
-  _DATA.scopes.append(scope)
-  yield scope
-  _DATA.scopes.pop()
+def Scope(f):
+  @functools.wraps(f)
+  def Wrapper(*args, **kwargs):
+    scope = _Scope(f.__name__)
+    with scope:
+      return f(*args, **kwargs)
+  return Wrapper
 
 
 def Injectable(f):
@@ -114,7 +120,7 @@ def Injectable(f):
 
 
 def _InjectableValue(name, value):
-  _DATA.scopes[-1].InjectableValue(name, value)
+  _DATA.scopes[-1].Value(name, value)
 Injectable.value = _InjectableValue
 
 
