@@ -81,16 +81,11 @@ class IocTest(Describe):
     expect(InjectValue).toRaise(KeyError)
 
   def it_should_detect_name_conflict_in_all_parent_scopes(self):
-    @ioc.Inject
-    def InjectedFunc(val=ioc.IN):
-      return val
-
     ioc.Injectable.value('val', 42)
 
     @ioc.Scope
     def ScopedFunc():
       ioc.Injectable.value('val', 32)
-      return InjectedFunc()
 
     expect(ScopedFunc).toRaise(KeyError)
 
