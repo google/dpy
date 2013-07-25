@@ -15,7 +15,7 @@ class _Scope(object):
     self._EAGER = []
 
   def Value(self, name, value):
-    @Singleton
+    @Singleton()
     def Callable(): pass
     Callable.__name__ = name
     Callable._ioc_value = value
@@ -130,8 +130,7 @@ def Singleton(func=None, eager=None):
       f._ioc_eager = True
     f._ioc_singleton = True
     return f
-
-  return Decorator(func) if func is not None else Decorator
+  return Decorator
 
 
 def Warmup():

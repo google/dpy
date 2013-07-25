@@ -36,7 +36,7 @@ class IocTest(Describe):
   def it_should_support_singletons(self):
     spy = create_spy('singleton')
     @ioc.Injectable
-    @ioc.Singleton
+    @ioc.Singleton()
     def singleton():
       spy()
     @ioc.Inject
