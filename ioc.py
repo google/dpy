@@ -124,14 +124,14 @@ def _InjectableValue(name, value):
 Injectable.value = _InjectableValue
 
 
-def Eager(f):
-  f._ioc_eager = True
-  return f
+def Singleton(func=None, eager=None):
+  def Decorator(f):
+    if eager:
+      f._ioc_eager = True
+    f._ioc_singleton = True
+    return f
 
-
-def Singleton(f):
-  f._ioc_singleton = True
-  return f
+  return Decorator(func) if func is not None else Decorator
 
 
 def Warmup():

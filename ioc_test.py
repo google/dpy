@@ -45,12 +45,11 @@ class IocTest(Describe):
     expect(spy.call_count).toBe(1)
     foo()
     expect(spy.call_count).toBe(1)
-      
+
   def it_should_support_eager_singletons(self):
     spy = create_spy('singleton')
     @ioc.Injectable
-    @ioc.Eager
-    @ioc.Singleton
+    @ioc.Singleton(eager=True)
     def singleton():
       spy()
     @ioc.Inject
@@ -78,7 +77,7 @@ class IocTest(Describe):
     @ioc.Inject
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
-      
+
 
 if __name__ == '__main__':
   run()
