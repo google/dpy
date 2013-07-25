@@ -23,7 +23,7 @@ class _Scope(object):
   def __contains__(self, name):
     return name in self._GOB
 
-  def Inspect(self, name):
+  def __getitem__(self, name):
     return self._GOB[name]
 
   def Warmup(self):
@@ -54,7 +54,7 @@ def _FillInInjections(injections, arguments):
     if injection in arguments: continue
     for scope in reversed(_DATA.scopes):
       if injection in scope:
-        arguments[injection] = scope.Inspect(injection)()
+        arguments[injection] = scope[injection]()
         break
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
