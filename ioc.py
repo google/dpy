@@ -15,7 +15,7 @@ class _Scope(object):
     self._EAGER = []
 
   def Value(self, name, value):
-    @Singleton
+    @Singleton()
     def Callable(): pass
     Callable.__name__ = name
     Callable._ioc_value = value
@@ -124,14 +124,13 @@ def _InjectableValue(name, value):
 Injectable.value = _InjectableValue
 
 
-def Eager(f):
-  f._ioc_eager = True
-  return f
-
-
-def Singleton(f):
-  f._ioc_singleton = True
-  return f
+def Singleton(func=None, eager=None):
+  def Decorator(f):
+    if eager:
+      f._ioc_eager = True
+    f._ioc_singleton = True
+    return f
+  return Decorator
 
 
 def Warmup():

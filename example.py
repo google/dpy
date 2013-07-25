@@ -13,16 +13,14 @@ def foo(a, b=INJECTED, c=INJECTED):
 
 
 @Injectable
-@Eager
-@Singleton
+@Singleton(eager=True)
 def b():
   print 'Creating b'
   return 'Injected[b]'
 
 
 @Injectable
-@Eager
-@Singleton
+@Singleton(eager=True)
 class c(object):
   def __init__(self, b=INJECTED):
     print 'Initing c'
