@@ -62,16 +62,36 @@ class IocTest(Describe):
     expect(spy.call_count).toBe(1)
 
   def it_should_support_multiple_scopes(self):
-    ioc.Injectable.value('val', 42)
+    ioc.Injectable.value('root', 99)
+
     @ioc.Inject
-    def InjectedFunc(val=ioc.IN):
-      return val
+    def InjectedFunc(scoped=ioc.IN, root=ioc.IN):
+      return scoped
+
+    @ioc.Scope
+    def ScopedFunc():
+      ioc.Injectable.value('scoped', 32)
+      return InjectedFunc()
+
+    expect(ScopedFunc()).toBe(32)
+    expect(InjectedFunc).toRaise(ValueError)
+
+  def it_should_detect_name_conflict_in_same_scope(self):
+    def InjectValue():
+      ioc.Injectable.value('val', 42)
+
+    InjectValue()
+    expect(InjectValue).toRaise(KeyError)
+
+  def it_should_detect_name_conflict_in_all_parent_scopes(self):
+    ioc.Injectable.value('val', 42)
+
     @ioc.Scope
     def ScopedFunc():
       ioc.Injectable.value('val', 32)
-      return InjectedFunc()
-    expect(InjectedFunc()).toBe(42)
-    expect(ScopedFunc()).toBe(32)
+
+    expect(ScopedFunc).toRaise(KeyError)
+
 
   def it_should_require_all_injections(self):
     @ioc.Inject
