@@ -14,24 +14,17 @@ class _Scope(object):
     self._GOB = {}
     self._EAGER = []
 
-  def Value(self, name, value):
-    @Singleton
-    def Callable(): pass
-    Callable.__name__ = name
-    Callable._ioc_value = value
-    self.Injectable(Callable)
-
   def Injectable(self, f):
-    if f.__name__ in self._GOB:
-      raise KeyError('Injectable %r already exist in scope %r.' %
-                     (f.__name__, self.name))
     f._ioc_injectable = True
     injectable = Inject(f)
     self._GOB[f.__name__] = injectable
     return injectable
 
+  def __contains__(self, name):
+    return name in self._GOB
+
   def Inspect(self, name):
-    return self._GOB.get(name)
+    return self._GOB[name]
 
   def Warmup(self):
     logging.debug('Warming up: ' + self.name)
@@ -56,6 +49,17 @@ _DATA = threading.local()
 _DATA.scopes = [_ROOT_SCOPE]
 
 
+def _FillInInjections(injections, arguments):
+  for injection in injections:
+    if injection in arguments: continue
+    for scope in reversed(_DATA.scopes):
+      if injection in scope:
+        arguments[injection] = scope.Inspect(injection)()
+        break
+    else:
+      raise ValueError('The injectable named %r was not found.' % injection)
+
+
 def Inject(f):
   c = f
   name = f.__name__
@@ -72,24 +76,13 @@ def Inject(f):
     self = 1 if inspect.isclass(c) else 0
     assert len(argspec.args) - self == len(injections), 'Injectables must be fully injected.'
 
-  def FillInInjections(injections, arguments):
-    for injection in injections:
-      if injection in arguments: continue
-      for scope in reversed(_DATA.scopes):
-        func = scope.Inspect(injection)
-        if func:
-          arguments[injection] = func()
-          break
-      else:
-        raise ValueError('The injectable named %r was not found.' % injection)
-
   if hasattr(f, '_ioc_singleton'):
     logging.debug(name + ' is a singleton.')
 
     @functools.wraps(f)
     def Wrapper(*args, **kwargs):
       if not hasattr(c, '_ioc_value'):
-        FillInInjections(injections, kwargs)
+        _FillInInjections(injections, kwargs)
         c._ioc_value = c(*args, **kwargs)
       return c._ioc_value
   else:
@@ -97,7 +90,7 @@ def Inject(f):
 
     @functools.wraps(f)
     def Wrapper(*args, **kwargs):
-      FillInInjections(injections, kwargs)
+      _FillInInjections(injections, kwargs)
       return c(*args, **kwargs)
 
   if hasattr(c, '_ioc_eager'):
@@ -116,11 +109,19 @@ def Scope(f):
 
 
 def Injectable(f):
+  for scope in _DATA.scopes:
+    if f.__name__ in scope:
+      raise KeyError('Injectable %r already exist in scope %r.' %
+                     (f.__name__, scope.name))
   _DATA.scopes[-1].Injectable(f)
 
 
 def _InjectableValue(name, value):
-  _DATA.scopes[-1].Value(name, value)
+  @Singleton
+  def Callable(): pass
+  Callable.__name__ = name
+  Callable._ioc_value = value
+  Injectable(Callable)
 Injectable.value = _InjectableValue
 
 

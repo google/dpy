@@ -45,7 +45,7 @@ class IocTest(Describe):
     expect(spy.call_count).toBe(1)
     foo()
     expect(spy.call_count).toBe(1)
-      
+
   def it_should_support_eager_singletons(self):
     spy = create_spy('singleton')
     @ioc.Injectable
@@ -63,22 +63,44 @@ class IocTest(Describe):
     expect(spy.call_count).toBe(1)
 
   def it_should_support_multiple_scopes(self):
-    ioc.Injectable.value('val', 42)
     @ioc.Inject
     def InjectedFunc(val=ioc.IN):
       return val
+
     @ioc.Scope
     def ScopedFunc():
       ioc.Injectable.value('val', 32)
       return InjectedFunc()
-    expect(InjectedFunc()).toBe(42)
+
     expect(ScopedFunc()).toBe(32)
+
+  def it_should_detect_name_conflict_in_same_scope(self):
+    def InjectValue():
+      ioc.Injectable.value('val', 42)
+
+    InjectValue()
+    expect(InjectValue).toRaise(KeyError)
+
+  def it_should_detect_name_conflict_in_all_parent_scopes(self):
+    @ioc.Inject
+    def InjectedFunc(val=ioc.IN):
+      return val
+
+    ioc.Injectable.value('val', 42)
+
+    @ioc.Scope
+    def ScopedFunc():
+      ioc.Injectable.value('val', 32)
+      return InjectedFunc()
+
+    expect(ScopedFunc).toRaise(KeyError)
+
 
   def it_should_require_all_injections(self):
     @ioc.Inject
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
-      
+
 
 if __name__ == '__main__':
   run()
