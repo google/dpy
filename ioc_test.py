@@ -122,10 +122,6 @@ class IocTestModeTest(Describe):
   def it_should_allow_passing_none(self):
     expect(self.InjectedFunc(val=None)).toBeNone()
 
-  def it_should_allow_turning_off_testmode(self):
-    ioc.SetTestMode(enable=False)
-    expect(self.InjectedFunc()).toBe(self.injected_value)
-
 
 if __name__ == '__main__':
   run()
