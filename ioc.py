@@ -5,6 +5,15 @@ import threading
 
 
 IN = INJECTED = object()
+_IN_TEST_MODE = False
+
+
+class Error(Exception):
+  """Base Error class of ioc module."""
+
+
+class InjectionDuringTestError(Error):
+  """When injection happened when the test mode is enabled."""
 
 
 class _Scope(object):
@@ -52,6 +61,8 @@ _DATA.scopes = [_ROOT_SCOPE]
 def _FillInInjections(injections, arguments):
   for injection in injections:
     if injection in arguments: continue
+    if _IN_TEST_MODE:
+      raise InjectionDuringTestError('Test mode enabled, please provide your own argument.')
     for scope in reversed(_DATA.scopes):
       if injection in scope:
         arguments[injection] = scope[injection]()
@@ -125,7 +136,7 @@ def _InjectableValue(name, value):
 Injectable.value = _InjectableValue
 
 
-def Singleton(func=None, eager=None):
+def Singleton(eager=None):
   def Decorator(f):
     if eager:
       f._ioc_eager = True
@@ -139,3 +150,9 @@ def Warmup():
   for scope in _DATA.scopes:
     scope.Warmup()
   logging.debug('Hot ALL')
+
+
+def SetTestMode():
+  """Enter or leave the test mode to """
+  global _IN_TEST_MODE
+  _IN_TEST_MODE = True

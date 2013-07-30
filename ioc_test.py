@@ -98,6 +98,30 @@ class IocTest(Describe):
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
 
+class IocTestModeTest(Describe):
+
+  def before_each(self):
+    reload(ioc)
+    ioc.SetTestMode()
+
+    @ioc.Inject
+    def InjectedFunc(val=ioc.IN):
+      return val
+
+    self.InjectedFunc = InjectedFunc
+    self.injected_value = 42
+
+    ioc.Injectable.value('val', self.injected_value)
+
+  def it_should_allow_passing_args(self):
+    expect(self.InjectedFunc(val=99)).toBe(99)
+
+  def it_should_not_inject(self):
+    expect(self.InjectedFunc).toRaise(ioc.InjectionDuringTestError)
+
+  def it_should_allow_passing_none(self):
+    expect(self.InjectedFunc(val=None)).toBeNone()
+
 
 if __name__ == '__main__':
   run()
