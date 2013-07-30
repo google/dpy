@@ -62,7 +62,7 @@ def _FillInInjections(injections, arguments):
   for injection in injections:
     if injection in arguments: continue
     if _IN_TEST_MODE:
-      raise InjectionDuringTestError('Test mode enabled, please provide your own argument.')
+      raise InjectionDuringTestError('Test mode enabled. Injection arguments are required.')
     for scope in reversed(_DATA.scopes):
       if injection in scope:
         arguments[injection] = scope[injection]()
