@@ -5,7 +5,7 @@
 # the handler logic and hence it can be easily tested.
 #
 # To test the example, try link:
-#   http://localhost:8000/Hello?greet=Greeting&user=My%20Friend
+#   http://localhost:8000/?greet=Greeting&user=My%20Friend
 import BaseHTTPServer
 import ioc
 import logging
@@ -17,13 +17,11 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 @ioc.Injectable
-@ioc.Inject
 def user(params=ioc.IN):
   return params['user'][0] if 'user' in params else 'Anonymous'
 
 
 @ioc.Injectable
-@ioc.Inject
 def greet(params=ioc.IN):
   return params['greet'][0] if 'greet' in params else 'Hello'
 
@@ -46,9 +44,7 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
     # Inject request scoped shared variable.
     ioc.Injectable.value('params', params)
 
-    method = parsed.path.rpartition('/')[-1]
-    if method in globals():
-      self.wfile.write(globals()[method]())
+    self.wfile.write(Hello())
 
 
 def RunServer():
