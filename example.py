@@ -1,68 +1,65 @@
 #!/usr/bin/python
+#
+# This example run a simple webserver that isolate the parameter injection out
+# of the actual logic. The real logic method Hello is not depending on any of
+# the handler logic and hence it can be easily tested.
+#
+# To test the example, try link:
+#   http://localhost:8000/?greet=Greeting&user=My%20Friend
+import BaseHTTPServer
+import ioc
 import logging
-import sys
-import threading
-from ioc import *
+import urlparse
+from jazz import jazz
+
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-@Inject
-def foo(a, b=INJECTED, c=INJECTED):
-  print a, b, c.d
+@ioc.Injectable
+def user(params=ioc.IN):
+  return params['user'][0] if 'user' in params else 'Anonymous'
 
 
-@Injectable
-@Singleton(eager=True)
-def b():
-  print 'Creating b'
-  return 'Injected[b]'
+@ioc.Injectable
+def greet(params=ioc.IN):
+  return params['greet'][0] if 'greet' in params else 'Hello'
 
 
-@Injectable
-@Singleton(eager=True)
-class c(object):
-  def __init__(self, b=INJECTED):
-    print 'Initing c'
-    self.d = 43
+@ioc.Inject
+def Hello(greet=ioc.IN, app_name=ioc.IN, user=ioc.IN):
+  return '<p>%s: %s %s</p>' % (app_name, greet, user)
 
 
-@Inject
-class bar(object):
-  def __init__(self, a, b=INJECTED, c=INJECTED, val=INJECTED):
-    print a, b, c.d, val
+class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
+
+  @ioc.Scope
+  def do_GET(self):
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+    parsed = urlparse.urlparse(self.path)
+    params = urlparse.parse_qs(parsed.query)
+
+    # Inject request scoped shared variable.
+    ioc.Injectable.value('params', params)
+
+    self.wfile.write(Hello())
 
 
-@Injectable
-def d(b=INJECTED):
-  return 'Injected[d#0]'
+def RunServer():
+  port = 8000
+  httpd = BaseHTTPServer.HTTPServer(('', port), Handler)
+  logging.info('Server running on port: %s', port)
+  httpd.serve_forever()
 
 
-Injectable.value('val', 'Injected[val]')
+def main():
+  # Injecting global constant
+  ioc.Injectable.value('app_name', 'Hello pyoc')
+  ioc.Warmup()
+  RunServer()
 
-Warmup()
 
-foo(4)
-bar(3)
-bar(3, val='Overwritten[val]')
-
-try:
-  Injectable.value('d', 'Should conflict')
-except KeyError:
-  print 'OK: Cannot define the same name twice....'
-
-@Inject
-def PrintThreadName(thread_name=IN):
-  sys.stdout.write('Hello from %s!\n' % thread_name)
-
-class T(threading.Thread):
-
-  @Scope
-  def run(self):
-    thread_name = threading.current_thread().name
-    Injectable.value('thread_name', thread_name)
-    for _ in xrange(4):
-      PrintThreadName()
-
-T().start()
-T().start()
+if __name__ == '__main__':
+  main()
