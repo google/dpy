@@ -1,3 +1,20 @@
+"""pyoc is a python dependency injection framework.
+
+pyoc is designed to allow easily isolate the dependency outside of the caller.
+
+Example:
+  @pyoc.Injectable
+  def user():
+    return 'Anonymous'
+
+  pyoc.Injectable.value('greet', 'Hello')
+
+  @pyoc.Inject
+  def Hello(greet=ioc.IN, user=ioc.IN):
+    return '%s %s' % (greet, user)
+
+  Hello()  # This will print 'Hello Anonymous'
+"""
 import functools
 import inspect
 import logging
@@ -99,9 +116,9 @@ def Inject(f):
   injections = tuple(injection for i, injection in enumerate(injections)
                      if argspec.defaults[i] is INJECTED)
   if hasattr(c, 'ioc_injectable'):
-    self = 1 if inspect.isclass(c) else 0
-    assert (len(argspec.args) - self == len(injections),
-            'Injectables must be fully injected.')
+    argspec_len = (len(argspec.args) - 1
+                   if inspect.isclass(c) else len(argspec.args))
+    assert argspec_len == len(injections), 'Injectables must be fully injected.'
 
   if hasattr(f, 'ioc_singleton'):
     logging.debug(name + ' is a singleton.')
@@ -172,6 +189,6 @@ def Warmup():
 
 
 def SetTestMode():
-  """Enter or leave the test mode"""
+  """Enter or leave the test mode."""
   global _IN_TEST_MODE
   _IN_TEST_MODE = True
