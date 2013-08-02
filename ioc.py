@@ -45,7 +45,7 @@ class _Scope(object):
     f.ioc_injectable = True
     injectable = Inject(f)
     self._gob[f.__name__] = injectable
-    if hasattr(c, 'ioc_eager'):
+    if hasattr(f, 'ioc_eager'):
       self._eagers.append(Wrapper)
     return injectable
 
