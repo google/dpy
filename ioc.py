@@ -1,3 +1,20 @@
+"""pyoc is a python dependency injection framework.
+
+pyoc is designed to allow easily isolate the dependency outside of the caller.
+
+Example:
+  @pyoc.Injectable
+  def user():
+    return 'Anonymous'
+
+  pyoc.Injectable.value('greet', 'Hello')
+
+  @pyoc.Inject
+  def Hello(greet=ioc.IN, user=ioc.IN):
+    return '%s %s' % (greet, user)
+
+  Hello()  # This will print 'Hello Anonymous'
+"""
 import functools
 import inspect
 import logging
@@ -20,29 +37,33 @@ class _Scope(object):
 
   def __init__(self, name):
     self.name = name
-    self._GOB = {}
-    self._EAGER = []
+    self._gob = {}
+    self._eagers = []
 
   def Injectable(self, f):
-    f._ioc_injectable = True
+    f.ioc_injectable = True
     injectable = Inject(f)
-    self._GOB[f.__name__] = injectable
+    self._gob[f.__name__] = injectable
     return injectable
 
   def __contains__(self, name):
-    return name in self._GOB
+    return name in self._gob
 
   def __getitem__(self, name):
-    return self._GOB[name]
+    return self._gob[name]
+
+  @property
+  def eagers(self):
+    return self._eagers
 
   def Warmup(self):
     logging.debug('Warming up: ' + self.name)
-    for eager in self._EAGER:
+    for eager in self._eagers:
       eager()
     logging.debug('Hot: ' + self.name)
 
   def __str__(self):
-    return 'Scope %r : %r' % (self.name, self._GOB.keys())
+    return 'Scope %r : %r' % (self.name, self._gob.keys())
 
   def __enter__(self):
     if not hasattr(_DATA, 'scopes'):
@@ -62,7 +83,8 @@ def _FillInInjections(injections, arguments):
   for injection in injections:
     if injection in arguments: continue
     if _IN_TEST_MODE:
-      raise InjectionDuringTestError('Test mode enabled. Injection arguments are required.')
+      raise InjectionDuringTestError(
+          'Test mode enabled. Injection arguments are required.')
     for scope in reversed(_DATA.scopes):
       if injection in scope:
         arguments[injection] = scope[injection]()
@@ -72,6 +94,15 @@ def _FillInInjections(injections, arguments):
 
 
 def Inject(f):
+  """Function wrapper that will examine the kwargs and wrap when necessary.
+
+  Args:
+    f: Function to inject into.
+
+  Returns:
+    Return a wrapped function of the original one with all the pyoc.IN value
+    being fill in the real values.
+  """
   c = f
   name = f.__name__
   if type(f) == type:
@@ -79,23 +110,25 @@ def Inject(f):
   try:
     argspec = inspect.getargspec(f)
   except TypeError:
-    raise ValueError('Built-ins (and classes without an __init__) cannot be injected.')
+    raise ValueError(
+        'Built-ins (and classes without an __init__) cannot be injected.')
   injections = argspec.args[-len(argspec.defaults):] if argspec.defaults else []
   injections = tuple(injection for i, injection in enumerate(injections)
                      if argspec.defaults[i] is INJECTED)
-  if hasattr(c, '_ioc_injectable'):
-    self = 1 if inspect.isclass(c) else 0
-    assert len(argspec.args) - self == len(injections), 'Injectables must be fully injected.'
+  if hasattr(c, 'ioc_injectable'):
+    argspec_len = (len(argspec.args) - 1
+                   if inspect.isclass(c) else len(argspec.args))
+    assert argspec_len == len(injections), 'Injectables must be fully injected.'
 
-  if hasattr(f, '_ioc_singleton'):
+  if hasattr(f, 'ioc_singleton'):
     logging.debug(name + ' is a singleton.')
 
     @functools.wraps(f)
     def Wrapper(*args, **kwargs):
-      if not hasattr(c, '_ioc_value'):
+      if not hasattr(c, 'ioc_value'):
         _FillInInjections(injections, kwargs)
-        c._ioc_value = c(*args, **kwargs)
-      return c._ioc_value
+        c.ioc_value = c(*args, **kwargs)
+      return c.ioc_value
   else:
     logging.debug(name + ' is a factory.')
 
@@ -104,9 +137,9 @@ def Inject(f):
       _FillInInjections(injections, kwargs)
       return c(*args, **kwargs)
 
-  if hasattr(c, '_ioc_eager'):
+  if hasattr(c, 'ioc_eager'):
     logging.debug(name + ' is eager.')
-    _DATA.scopes[-1]._EAGER.append(Wrapper)
+    _DATA.scopes[-1].eagers.append(Wrapper)
 
   return Wrapper
 
@@ -128,10 +161,13 @@ def Injectable(f):
 
 
 def _InjectableValue(name, value):
+
   @Singleton()
-  def Callable(): pass
+  def Callable():
+    pass
   Callable.__name__ = name
-  Callable._ioc_value = value
+  Callable.ioc_value = value
+
   Injectable(Callable)
 Injectable.value = _InjectableValue
 
@@ -139,8 +175,8 @@ Injectable.value = _InjectableValue
 def Singleton(eager=None):
   def Decorator(f):
     if eager:
-      f._ioc_eager = True
-    f._ioc_singleton = True
+      f.ioc_eager = True
+    f.ioc_singleton = True
     return f
   return Decorator
 
@@ -153,6 +189,6 @@ def Warmup():
 
 
 def SetTestMode():
-  """Enter or leave the test mode to """
+  """Enter or leave the test mode."""
   global _IN_TEST_MODE
   _IN_TEST_MODE = True
