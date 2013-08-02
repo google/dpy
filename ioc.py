@@ -1,6 +1,7 @@
-"""pyoc is a python dependency injection framework.
+"""pyoc is a simple, thread-safe, Python dependency injection library.
 
-pyoc is designed to allow easily isolate the dependency outside of the caller.
+pyoc is designed to easily allow inversion of control without messy overhead.
+It is quick to define and use injectable objects in your code.
 
 Example:
   @pyoc.Injectable
