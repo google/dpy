@@ -45,6 +45,8 @@ class _Scope(object):
     f.ioc_injectable = True
     injectable = Inject(f)
     self._gob[f.__name__] = injectable
+    if hasattr(c, 'ioc_eager'):
+      self._eagers.append(Wrapper)
     return injectable
 
   def __contains__(self, name):
@@ -52,10 +54,6 @@ class _Scope(object):
 
   def __getitem__(self, name):
     return self._gob[name]
-
-  @property
-  def eagers(self):
-    return self._eagers
 
   def Warmup(self):
     logging.debug('Warming up: ' + self.name)
@@ -137,10 +135,6 @@ def Inject(f):
     def Wrapper(*args, **kwargs):
       _FillInInjections(injections, kwargs)
       return c(*args, **kwargs)
-
-  if hasattr(c, 'ioc_eager'):
-    logging.debug(name + ' is eager.')
-    _DATA.scopes[-1].eagers.append(Wrapper)
 
   return Wrapper
 
