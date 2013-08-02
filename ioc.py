@@ -46,7 +46,7 @@ class _Scope(object):
     injectable = Inject(f)
     self._gob[f.__name__] = injectable
     if hasattr(f, 'ioc_eager'):
-      self._eagers.append(Wrapper)
+      self._eagers.append(injectable)
     return injectable
 
   def __contains__(self, name):
