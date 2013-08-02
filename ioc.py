@@ -188,7 +188,7 @@ def Warmup():
   logging.debug('Hot ALL')
 
 
-def SetTestMode():
+def SetTestMode(enabled=True):
   """Enter or leave the test mode."""
   global _IN_TEST_MODE
-  _IN_TEST_MODE = True
+  _IN_TEST_MODE = enabled
