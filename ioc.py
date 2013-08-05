@@ -152,7 +152,7 @@ def Injectable(f):
     if f.__name__ in scope:
       raise KeyError('Injectable %r already exist in scope %r.' %
                      (f.__name__, scope.name))
-  _DATA.scopes[-1].Injectable(f)
+  return _DATA.scopes[-1].Injectable(f)
 
 
 def _InjectableValue(name, value):
