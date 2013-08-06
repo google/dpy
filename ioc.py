@@ -11,7 +11,7 @@ Example:
   pyoc.Injectable.value('greet', 'Hello')
 
   @pyoc.Inject
-  def Hello(greet=ioc.IN, user=ioc.IN):
+  def Hello(greet=pyoc.IN, user=pyoc.IN):
     return '%s %s' % (greet, user)
 
   Hello()  # This will print 'Hello Anonymous'
