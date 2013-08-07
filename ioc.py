@@ -218,6 +218,11 @@ def Singleton(f):
   """Decorates a callable and sets it as a singleton.
 
   Must be used in conjunction with a call to Injectable.
+  
+  Args:
+    f: A callable to mark as an injectable singleton.
+  Returns:
+    The callable set to be a singleton when injected.
   """
   f.ioc_singleton = True
   return f
@@ -227,6 +232,11 @@ def _EagerSingleton(f):
   """Decorates a callable and sets it as an eager singleton.
 
   Must be used in conjunction with a call to Injectable.
+
+  Args:
+    f: A callable to mark as an injectable eager singleton.
+  Returns:
+    The callable set to be a eager singleton when injected.
   """
   f.ioc_eager = True
   return Singleton(f)
