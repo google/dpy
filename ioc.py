@@ -114,6 +114,8 @@ def Inject(f):
   Returns:
     Return a wrapped function of the original one with all the pyoc.IN value
     being fill in the real values.
+  Raises:
+    ValueError: If the argument is not a callable or is already injected.
   """
   if not callable(f):
     raise ValueError('%r is not injectable.', f)
