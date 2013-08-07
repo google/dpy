@@ -42,6 +42,14 @@ class _Scope(object):
     self._eagers = []
 
   def Injectable(self, f, name=None):
+    """Adds a callable as an injectable to the scope.
+
+    Args:
+      f: A callable to add as an injectable.
+      name: A name to give the injectable or None to use its name.
+    Returns:
+      The wrapped injectable function.
+    """
     f.ioc_injectable = True
     injectable = Inject(f)
     if name:
