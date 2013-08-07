@@ -109,6 +109,13 @@ class Ioc(Describe):
     expect(InjectInjectable).toRaise(ValueError)
     expect(InjectableInject).toRaise(ValueError)
 
+  def it_should_not_allow_calling_injectables(self):
+    @ioc.Injectable
+    def foo():
+      return 42
+
+    expect(foo).toRaise(ValueError)
+
   def it_should_detect_name_conflict_in_same_scope(self):
     def InjectValue():
       ioc.Injectable.value('val', 42)
@@ -131,7 +138,7 @@ class Ioc(Describe):
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
 
-class IocTestModeTest(Describe):
+class IocTestMode(Describe):
 
   def before_each(self):
     reload(ioc)
