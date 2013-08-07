@@ -25,9 +25,6 @@ import threading
 IN = INJECTED = object()
 _IN_TEST_MODE = False
 
-def InjectablesAreNotCallable(*unused_args, **unused_kwargs):
-  raise ValueError('Injectable are to be injected, not called.')
-
 
 class Error(Exception):
   """Base Error class of ioc module."""
@@ -55,7 +52,7 @@ class _Scope(object):
     self._gob[name] = injectable
     if hasattr(f, 'ioc_eager'):
       self._eagers.append(injectable)
-    return InjectablesAreNotCallable
+    return injectable
 
   def __contains__(self, name):
     return name in self._gob
@@ -112,7 +109,7 @@ def Inject(f):
   """
   if not callable(f):
     raise ValueError('%r is not injectable.', f)
-  if f is InjectablesAreNotCallable or hasattr(f, 'ioc_injected'):
+  if hasattr(f, 'ioc_injected'):
     raise ValueError('%r has already been setup for injection.')
   f.ioc_injected = True
   c = f
