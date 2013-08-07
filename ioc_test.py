@@ -8,6 +8,7 @@ from jazz import mock
 if 'debug' in sys.argv:
   logging.getLogger().setLevel(logging.DEBUG)
 
+
 class Ioc(Describe):
 
   def before_each(self):
@@ -137,6 +138,7 @@ class Ioc(Describe):
     @ioc.Inject
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
+
 
 class IocTestMode(Describe):
 
