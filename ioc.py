@@ -36,18 +36,30 @@ class InjectionDuringTestError(Error):
 
 class _Scope(object):
 
-  def __init__(self, name):
-    self.name = name
+  def __init__(self, f):
+    self.func = f
     self._gob = {}
     self._eagers = []
+
+  @property
+  def name(self):
+    if self.func:
+      parent = (getattr(self.func, 'im_class', None) or
+                getattr(self.func, '__module__'))
+      return '%s.%s' % (parent, self.func.__name__)
+    elif self is _ROOT_SCOPE:
+      return 'Root'
+    else:
+      return 'No Name'
 
   def Injectable(self, f, name=None):
     f.ioc_injectable = True
     injectable = Inject(f)
     if name:
-      logging.debug('%r is injectable as %r.', f.__name__, name)
+      logging.debug('%r injectable added as %r to scope %r.',
+                    f.__name__, name, self.name)
     else:
-      logging.debug('%r is injectable.', f.__name__)
+      logging.debug('%r injectable added to scope %r.', f.__name__, self.name)
       name = f.__name__
     self._gob[name] = injectable
     if hasattr(f, 'ioc_eager'):
@@ -67,7 +79,11 @@ class _Scope(object):
     logging.debug('Hot: %s', self.name)
 
   def __str__(self):
-    return 'Scope %r : %r' % (self.name, self._gob.keys())
+    a = ['Scope %r:' % self.name]
+    for key in self._gob:
+      a.append('\n  ')
+      a.append(key)
+    return ''.join(a)
 
   def __enter__(self):
     if not hasattr(_DATA, 'scopes'):
@@ -78,7 +94,7 @@ class _Scope(object):
     _DATA.scopes.pop()
 
 
-_ROOT_SCOPE = _Scope('root')
+_ROOT_SCOPE = _Scope(None)
 _DATA = threading.local()
 _DATA.scopes = [_ROOT_SCOPE]
 
@@ -153,7 +169,7 @@ def Scope(f):
   """Decorates a callable and creates a new injection Scope level."""
   @functools.wraps(f)
   def Wrapper(*args, **kwargs):
-    with _Scope(f.__name__):
+    with _Scope(f):
       return f(*args, **kwargs)
   return Wrapper
 
@@ -229,6 +245,11 @@ def Warmup():
   for scope in _DATA.scopes:
     scope.Warmup()
   logging.debug('Hot ALL')
+
+
+def DumpInjectionStack():
+  for scope in _DATA.scopes:
+    print scope
 
 
 def SetTestMode(enabled=True):
