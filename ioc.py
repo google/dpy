@@ -53,6 +53,14 @@ class _Scope(object):
       return 'No Name'
 
   def Injectable(self, f, name=None):
+    """Adds a callable as an injectable to the scope.
+
+    Args:
+      f: A callable to add as an injectable.
+      name: A name to give the injectable or None to use its name.
+    Returns:
+      The wrapped injectable function.
+    """
     f.ioc_injectable = True
     injectable = Inject(f)
     if name:
@@ -122,6 +130,8 @@ def Inject(f):
   Returns:
     Return a wrapped function of the original one with all the pyoc.IN value
     being fill in the real values.
+  Raises:
+    ValueError: If the argument is not a callable or is already injected.
   """
   if not callable(f):
     raise ValueError('%r is not injectable.', f)
@@ -224,6 +234,11 @@ def Singleton(f):
   """Decorates a callable and sets it as a singleton.
 
   Must be used in conjunction with a call to Injectable.
+  
+  Args:
+    f: A callable to mark as an injectable singleton.
+  Returns:
+    The callable set to be a singleton when injected.
   """
   f.ioc_singleton = True
   return f
@@ -233,6 +248,11 @@ def _EagerSingleton(f):
   """Decorates a callable and sets it as an eager singleton.
 
   Must be used in conjunction with a call to Injectable.
+
+  Args:
+    f: A callable to mark as an injectable eager singleton.
+  Returns:
+    The callable set to be a eager singleton when injected.
   """
   f.ioc_eager = True
   return Singleton(f)
