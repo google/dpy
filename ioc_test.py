@@ -133,11 +133,25 @@ class Ioc(Describe):
 
     expect(ScopedFunc).toRaise(ValueError)
 
-
   def it_should_require_all_injections(self):
     @ioc.Inject
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
+
+  def it_should_not_mangle_classes(self):
+
+    class foo(object):
+      def __init__(self, bar):
+        self.bar = bar
+
+    @ioc.Inject
+    class bar(foo):
+      def __init__(self, x=ioc.IN):
+        super(bar, self).__init__(x)
+
+    ioc.Injectable.value('x', 42)
+
+    expect(bar().bar).toBe(42)
 
 
 class IocTestMode(Describe):

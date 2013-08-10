@@ -138,41 +138,43 @@ def Inject(f):
   if hasattr(f, 'ioc_injected'):
     raise ValueError('%r has already been setup for injection.')
   f.ioc_injected = True
-  c = f
   name = f.__name__
-  if type(f) == type:
-    f = f.__init__
+  is_cls = inspect.isclass(f)
+  c = f.__init__ if is_cls else f
   try:
-    argspec = inspect.getargspec(f)
+    argspec = inspect.getargspec(c)
   except TypeError:
     raise ValueError(
         'Built-ins (and classes without an __init__) cannot be injected.')
   injections = argspec.args[-len(argspec.defaults):] if argspec.defaults else []
   injections = tuple(injection for i, injection in enumerate(injections)
                      if argspec.defaults[i] is INJECTED)
-  if hasattr(c, 'ioc_injectable'):
-    argspec_len = (len(argspec.args) - 1
-                   if inspect.isclass(c) else len(argspec.args))
+  if hasattr(f, 'ioc_injectable'):
+    argspec_len = len(argspec.args) - 1 if is_cls else len(argspec.args)
     assert argspec_len == len(injections), 'Injectables must be fully injected.'
 
-  if hasattr(c, 'ioc_singleton'):
+  if hasattr(f, 'ioc_singleton'):
     logging.debug('%r is a singleton.', name)
 
-    @functools.wraps(f)
+    @functools.wraps(c)
     def Wrapper(*args, **kwargs):
-      if not hasattr(c, 'ioc_value'):
+      if not hasattr(f, 'ioc_value'):
         _FillInInjections(injections, kwargs)
-        c.ioc_value = c(*args, **kwargs)
-      return c.ioc_value
+        f.ioc_value = c(*args, **kwargs)
+      return f.ioc_value
   else:
     logging.debug('%r is injected.', name)
 
-    @functools.wraps(f)
+    @functools.wraps(c)
     def Wrapper(*args, **kwargs):
       _FillInInjections(injections, kwargs)
       return c(*args, **kwargs)
 
-  return Wrapper
+  if is_cls:
+    f.__init__ = Wrapper
+    return f
+  else:
+    return Wrapper
 
 
 def Scope(f):
