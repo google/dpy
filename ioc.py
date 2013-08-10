@@ -203,6 +203,8 @@ def _InjectableNamed(name):
 
   Args:
     name: The name of the object to setup for injection.
+  Returns:
+    A decorator for an Injectable.
   """
 
   def Decorator(f):
@@ -234,7 +236,7 @@ def Singleton(f):
   """Decorates a callable and sets it as a singleton.
 
   Must be used in conjunction with a call to Injectable.
-  
+
   Args:
     f: A callable to mark as an injectable singleton.
   Returns:
