@@ -50,6 +50,17 @@ class Ioc(Describe):
 
     expect(bar()).toBe(42)
 
+  def it_should_allow_calling_injectables(self):
+
+    @ioc.Injectable
+    def foo(bar=ioc.IN):
+      return 'foo %s' % bar
+
+    ioc.Injectable.value('bar', 'bar')
+
+    expect(foo()).toEqual('foo bar')
+    expect(foo(bar='candybar')).toEqual('foo candybar')
+
   def it_should_support_singletons(self):
     spy = create_spy('singleton')
     @ioc.Injectable
