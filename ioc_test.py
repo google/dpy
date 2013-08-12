@@ -1,10 +1,15 @@
 #!/usr/bin/python
 import ioc
+import logging
+import sys
 from jazz.jazz import *
 from jazz import mock
 
+if 'debug' in sys.argv:
+  logging.getLogger().setLevel(logging.DEBUG)
 
-class IocTest(Describe):
+
+class Ioc(Describe):
 
   def before_each(self):
     reload(ioc)
@@ -13,25 +18,37 @@ class IocTest(Describe):
 
     @ioc.Injectable
     def foo():
-      return 'foo'
+      return 42
 
     @ioc.Inject
     def bar(foo=ioc.IN):
       return foo
 
-    expect(bar()).toEqual('foo')
+    expect(bar()).toBe(42)
 
   def it_should_allow_overwriting_injectables(self):
 
     @ioc.Injectable
     def foo():
-      return 'foo'
+      return 42
 
     @ioc.Inject
     def bar(foo=ioc.IN):
       return foo
 
-    expect(bar(foo=42)).toEqual(42)
+    expect(bar(foo=99)).toBe(99)
+
+  def it_should_support_naming_injectables(self):
+
+    @ioc.Injectable.named('bar')
+    def foo():
+      return 42
+
+    @ioc.Inject
+    def bar(bar=ioc.IN):
+      return bar
+
+    expect(bar()).toBe(42)
 
   def it_should_allow_calling_injectables(self):
 
@@ -47,7 +64,7 @@ class IocTest(Describe):
   def it_should_support_singletons(self):
     spy = create_spy('singleton')
     @ioc.Injectable
-    @ioc.Singleton()
+    @ioc.Singleton
     def singleton():
       spy()
     @ioc.Inject
@@ -60,7 +77,7 @@ class IocTest(Describe):
   def it_should_support_eager_singletons(self):
     spy = create_spy('singleton')
     @ioc.Injectable
-    @ioc.Singleton(eager=True)
+    @ioc.Singleton.eager
     def singleton():
       spy()
     @ioc.Inject
@@ -77,22 +94,46 @@ class IocTest(Describe):
 
     @ioc.Inject
     def InjectedFunc(scoped=ioc.IN, root=ioc.IN):
-      return scoped
+      return scoped, root
 
     @ioc.Scope
     def ScopedFunc():
       ioc.Injectable.value('scoped', 32)
       return InjectedFunc()
 
-    expect(ScopedFunc()).toBe(32)
+    expect(ScopedFunc()).toEqual((32, 99))
     expect(InjectedFunc).toRaise(ValueError)
+
+  def it_should_error_when_layering_injection_decorators(self):
+
+    def InjectInjectable():
+      @ioc.Inject
+      @ioc.Injectable
+      def foo():
+        pass
+
+    def InjectableInject():
+      @ioc.Injectable
+      @ioc.Inject
+      def foo():
+        pass
+
+    expect(InjectInjectable).toRaise(ValueError)
+    expect(InjectableInject).toRaise(ValueError)
+
+  def it_should_allow_calling_injectables_for_testability(self):
+    @ioc.Injectable
+    def foo(val=ioc.IN):
+      return val
+
+    expect(foo(val=99)).toBe(99)
 
   def it_should_detect_name_conflict_in_same_scope(self):
     def InjectValue():
       ioc.Injectable.value('val', 42)
 
     InjectValue()
-    expect(InjectValue).toRaise(KeyError)
+    expect(InjectValue).toRaise(ValueError)
 
   def it_should_detect_name_conflict_in_all_parent_scopes(self):
     ioc.Injectable.value('val', 42)
@@ -101,15 +142,30 @@ class IocTest(Describe):
     def ScopedFunc():
       ioc.Injectable.value('val', 32)
 
-    expect(ScopedFunc).toRaise(KeyError)
-
+    expect(ScopedFunc).toRaise(ValueError)
 
   def it_should_require_all_injections(self):
     @ioc.Inject
     def Injected(val=ioc.IN): pass
     expect(Injected).toRaise(ValueError)
 
-class IocTestModeTest(Describe):
+  def it_should_not_mangle_classes(self):
+
+    class foo(object):
+      def __init__(self, bar):
+        self.bar = bar
+
+    @ioc.Inject
+    class bar(foo):
+      def __init__(self, x=ioc.IN):
+        super(bar, self).__init__(x)
+
+    ioc.Injectable.value('x', 42)
+
+    expect(bar().bar).toBe(42)
+
+
+class IocTestMode(Describe):
 
   def before_each(self):
     reload(ioc)

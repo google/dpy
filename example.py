@@ -58,6 +58,7 @@ def main():
   # Injecting global constant
   ioc.Injectable.value('app_name', 'Hello pyoc')
   ioc.Warmup()
+  ioc.DumpInjectionStack()
   RunServer()
 
 

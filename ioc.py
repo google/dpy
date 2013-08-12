@@ -36,15 +36,40 @@ class InjectionDuringTestError(Error):
 
 class _Scope(object):
 
-  def __init__(self, name):
-    self.name = name
+  def __init__(self, f):
+    self.func = f
     self._gob = {}
     self._eagers = []
 
-  def Injectable(self, f):
+  @property
+  def name(self):
+    if self.func:
+      parent = (getattr(self.func, 'im_class', None) or
+                getattr(self.func, '__module__'))
+      return '%s.%s' % (parent, self.func.__name__)
+    elif self is _ROOT_SCOPE:
+      return 'Root'
+    else:
+      return 'No Name'
+
+  def Injectable(self, f, name=None):
+    """Adds a callable as an injectable to the scope.
+
+    Args:
+      f: A callable to add as an injectable.
+      name: A name to give the injectable or None to use its name.
+    Returns:
+      The wrapped injectable function.
+    """
     f.ioc_injectable = True
     injectable = Inject(f)
-    self._gob[f.__name__] = injectable
+    if name:
+      logging.debug('%r injectable added as %r to scope %r.',
+                    f.__name__, name, self.name)
+    else:
+      logging.debug('%r injectable added to scope %r.', f.__name__, self.name)
+      name = f.__name__
+    self._gob[name] = injectable
     if hasattr(f, 'ioc_eager'):
       self._eagers.append(injectable)
     return injectable
@@ -56,13 +81,17 @@ class _Scope(object):
     return self._gob[name]
 
   def Warmup(self):
-    logging.debug('Warming up: ' + self.name)
+    logging.debug('Warming up: %s', self.name)
     for eager in self._eagers:
       eager()
-    logging.debug('Hot: ' + self.name)
+    logging.debug('Hot: %s', self.name)
 
   def __str__(self):
-    return 'Scope %r : %r' % (self.name, self._gob.keys())
+    a = ['Scope %r:' % self.name]
+    for key in self._gob:
+      a.append('\n  ')
+      a.append(key)
+    return ''.join(a)
 
   def __enter__(self):
     if not hasattr(_DATA, 'scopes'):
@@ -73,7 +102,7 @@ class _Scope(object):
     _DATA.scopes.pop()
 
 
-_ROOT_SCOPE = _Scope('root')
+_ROOT_SCOPE = _Scope(None)
 _DATA = threading.local()
 _DATA.scopes = [_ROOT_SCOPE]
 
@@ -101,63 +130,101 @@ def Inject(f):
   Returns:
     Return a wrapped function of the original one with all the pyoc.IN value
     being fill in the real values.
+  Raises:
+    ValueError: If the argument is not a callable or is already injected.
   """
-  c = f
+  if not callable(f):
+    raise ValueError('%r is not injectable.', f)
+  if hasattr(f, 'ioc_injected'):
+    raise ValueError('%r has already been setup for injection.')
+  f.ioc_injected = True
   name = f.__name__
-  if type(f) == type:
-    f = f.__init__
+  is_cls = inspect.isclass(f)
+  c = f.__init__ if is_cls else f
   try:
-    argspec = inspect.getargspec(f)
+    argspec = inspect.getargspec(c)
   except TypeError:
     raise ValueError(
         'Built-ins (and classes without an __init__) cannot be injected.')
   injections = argspec.args[-len(argspec.defaults):] if argspec.defaults else []
   injections = tuple(injection for i, injection in enumerate(injections)
                      if argspec.defaults[i] is INJECTED)
-  if hasattr(c, 'ioc_injectable'):
-    argspec_len = (len(argspec.args) - 1
-                   if inspect.isclass(c) else len(argspec.args))
+  if hasattr(f, 'ioc_injectable'):
+    argspec_len = len(argspec.args) - 1 if is_cls else len(argspec.args)
     assert argspec_len == len(injections), 'Injectables must be fully injected.'
 
   if hasattr(f, 'ioc_singleton'):
-    logging.debug(name + ' is a singleton.')
+    logging.debug('%r is a singleton.', name)
 
-    @functools.wraps(f)
+    @functools.wraps(c)
     def Wrapper(*args, **kwargs):
-      if not hasattr(c, 'ioc_value'):
+      if not hasattr(f, 'ioc_value'):
         _FillInInjections(injections, kwargs)
-        c.ioc_value = c(*args, **kwargs)
-      return c.ioc_value
+        f.ioc_value = c(*args, **kwargs)
+      return f.ioc_value
   else:
-    logging.debug(name + ' is a factory.')
+    logging.debug('%r is injected.', name)
 
-    @functools.wraps(f)
+    @functools.wraps(c)
     def Wrapper(*args, **kwargs):
       _FillInInjections(injections, kwargs)
       return c(*args, **kwargs)
 
-  return Wrapper
+  if is_cls:
+    f.__init__ = Wrapper
+    return f
+  else:
+    return Wrapper
 
 
 def Scope(f):
+  """Decorates a callable and creates a new injection Scope level."""
   @functools.wraps(f)
   def Wrapper(*args, **kwargs):
-    with _Scope(f.__name__):
+    with _Scope(f):
       return f(*args, **kwargs)
   return Wrapper
 
 
-def Injectable(f):
+def _CheckAlreadyInjected(name):
+  """Checks if an injectable name is already in use."""
   for scope in _DATA.scopes:
-    if f.__name__ in scope:
-      raise KeyError('Injectable %r already exist in scope %r.' %
-                     (f.__name__, scope.name))
+    if name in scope:
+      raise ValueError('Injectable %r already exist in scope %r.' %
+                       (name, scope.name))
+
+
+def Injectable(f):
+  """Decorates a callable and creates an injectable in the current Scope."""
+  _CheckAlreadyInjected(f.__name__)
   return _DATA.scopes[-1].Injectable(f)
 
 
-def _InjectableValue(name, value):
+def _InjectableNamed(name):
+  """Decorates a callable and creates a named injectable in the current Scope.
 
-  @Singleton()
+  Args:
+    name: The name of the object to setup for injection.
+  Returns:
+    A decorator for an Injectable.
+  """
+
+  def Decorator(f):
+    _CheckAlreadyInjected(name)
+    return _DATA.scopes[-1].Injectable(f, name=name)
+  return Decorator
+Injectable.named = _InjectableNamed
+
+
+def _InjectableValue(name, value):
+  """Creates a named injectable value.
+
+  Args:
+    name: The name of the object to setup for injection.
+    value: The value of the object to setup for injection.
+  """
+
+  @Singleton
   def Callable():
     pass
   Callable.__name__ = name
@@ -167,20 +234,46 @@ def _InjectableValue(name, value):
 Injectable.value = _InjectableValue
 
 
-def Singleton(eager=None):
-  def Decorator(f):
-    if eager:
-      f.ioc_eager = True
-    f.ioc_singleton = True
-    return f
-  return Decorator
+def Singleton(f):
+  """Decorates a callable and sets it as a singleton.
+
+  Must be used in conjunction with a call to Injectable.
+
+  Args:
+    f: A callable to mark as an injectable singleton.
+  Returns:
+    The callable set to be a singleton when injected.
+  """
+  f.ioc_singleton = True
+  return f
+
+
+def _EagerSingleton(f):
+  """Decorates a callable and sets it as an eager singleton.
+
+  Must be used in conjunction with a call to Injectable.
+
+  Args:
+    f: A callable to mark as an injectable eager singleton.
+  Returns:
+    The callable set to be a eager singleton when injected.
+  """
+  f.ioc_eager = True
+  return Singleton(f)
+Singleton.eager = _EagerSingleton
 
 
 def Warmup():
+  """Instantiates all the eager singleton injectables."""
   logging.debug('Warming up ALL')
   for scope in _DATA.scopes:
     scope.Warmup()
   logging.debug('Hot ALL')
+
+
+def DumpInjectionStack():
+  for scope in _DATA.scopes:
+    print scope
 
 
 def SetTestMode(enabled=True):
