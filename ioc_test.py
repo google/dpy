@@ -61,18 +61,22 @@ class Ioc(Describe):
     expect(foo()).toEqual('foo bar')
     expect(foo(bar='candybar')).toEqual('foo candybar')
 
-  def it_should_support_singletons(self):
-    spy = create_spy('singleton')
+  def it_should_support_singleton_functions(self):
     @ioc.Injectable
     @ioc.Singleton
     def singleton():
-      spy()
-    @ioc.Inject
-    def foo(singleton=ioc.IN): pass
-    foo()
-    expect(spy.call_count).toBe(1)
-    foo()
-    expect(spy.call_count).toBe(1)
+      return object()
+    expect(singleton()).toBe(singleton())
+
+  def it_should_support_singleton_classes(self):
+    @ioc.Injectable
+    @ioc.Singleton
+    class singleton(object):
+      def __init__(self):
+        self.bar = object()
+
+    expect(singleton()).toBe(singleton())
+    expect(singleton().bar).toBe(singleton().bar)
 
   def it_should_support_eager_singletons(self):
     spy = create_spy('singleton')
@@ -80,13 +84,11 @@ class Ioc(Describe):
     @ioc.Singleton.eager
     def singleton():
       spy()
-    @ioc.Inject
-    def foo(singleton=ioc.IN): pass
     ioc.Warmup()
     expect(spy.call_count).toBe(1)
-    foo()
+    singleton()
     expect(spy.call_count).toBe(1)
-    foo()
+    singleton()
     expect(spy.call_count).toBe(1)
 
   def it_should_support_multiple_scopes(self):
@@ -118,8 +120,8 @@ class Ioc(Describe):
       def foo():
         pass
 
-    expect(InjectInjectable).toRaise(ValueError)
-    expect(InjectableInject).toRaise(ValueError)
+    expect(InjectInjectable).toRaise(AssertionError)
+    expect(InjectableInject).toRaise(AssertionError)
 
   def it_should_allow_calling_injectables_for_testability(self):
     @ioc.Injectable
@@ -151,19 +153,46 @@ class Ioc(Describe):
 
   def it_should_not_mangle_classes(self):
 
-    class foo(object):
-      def __init__(self, bar):
-        self.bar = bar
+    @ioc.Inject
+    class bar(object):
+      def __init__(self):
+        super(bar, self).__init__()
+
+    expect(bar).notToRaise(TypeError)
+
+  def it_should_inject_classes(self):
+    class bar(object):
+      def __init__(self, x):
+        self._x = x
 
     @ioc.Inject
-    class bar(foo):
+    @ioc.Singleton
+    class foo(bar):
       def __init__(self, x=ioc.IN):
-        super(bar, self).__init__(x)
+        print 'init b', self, type(self)
+        self._y = x + 5
+        super(foo, self).__init__(x)
+        print 'init a', self, self._y
+      def bar(self):
+        print 'bar   ', self
+        print self._y
+        return self._x
+
+    print 'main  ', foo, type(foo)
 
     ioc.Injectable.value('x', 42)
 
-    expect(bar().bar).toBe(42)
+    f = foo()
+    print 'main 1', f, type(f)
 
+    expect(f.bar()).toBe(42)
+    expect(f._y).toBe(42 + 5)
+
+    f = foo()
+    print 'main 2', f, type(f)
+
+    expect(f.bar()).toBe(42)
+    expect(f._y).toBe(42 + 5)
 
 class IocTestMode(Describe):
 
