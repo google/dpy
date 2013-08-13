@@ -25,6 +25,9 @@ import threading
 IN = INJECTED = object()
 _IN_TEST_MODE = False
 
+_MAIN_THREAD_ID = threading.currentThread().ident
+_DATA = threading.local()
+
 
 class Error(Exception):
   """Base Error class of ioc module."""
@@ -89,23 +92,28 @@ class _Scope(object):
 
   def __str__(self):
     a = ['Scope %r:' % self.name]
+    if not len(self._gob):
+      a.append('\n  None')
     for key in self._gob:
       a.append('\n  ')
       a.append(key)
     return ''.join(a)
 
   def __enter__(self):
-    if not hasattr(_DATA, 'scopes'):
-      _DATA.scopes = [_ROOT_SCOPE]
-    _DATA.scopes.append(self)
+    scopes = _MyScopes()
+    if threading.currentThread().ident == _MAIN_THREAD_ID:
+      _BASE_SCOPES.append(self)
+    else:
+      scopes.append(self)
 
   def __exit__(self, t, v, tb):
-    _DATA.scopes.pop()
+    _MyScopes().pop()
 
 
-_ROOT_SCOPE = _Scope(None)
-_DATA = threading.local()
-_DATA.scopes = [_ROOT_SCOPE]
+def _MyScopes():
+  if not hasattr(_DATA, 'scopes'):
+    _DATA.scopes = _BASE_SCOPES
+  return _DATA.scopes
 
 
 def _FillInInjections(injections, arguments):
@@ -114,7 +122,7 @@ def _FillInInjections(injections, arguments):
     if _IN_TEST_MODE:
       raise InjectionDuringTestError(
           'Test mode enabled. Injection arguments are required.')
-    for scope in reversed(_DATA.scopes):
+    for scope in reversed(_MyScopes()):
       if injection in scope:
         arguments[injection] = scope[injection]()
         break
@@ -152,6 +160,7 @@ def _CreateSingletonInjectableWrapper(f):
     if not hasattr(f, 'ioc_value'):
       f.ioc_value = f(*args, **kwargs)
     return f.ioc_value
+  Wrapper.ioc_singleton = True
   return Wrapper
 
 
@@ -272,7 +281,7 @@ def Scope(f):
 
 def _CheckAlreadyInjected(name):
   """Checks if an injectable name is already in use."""
-  for scope in _DATA.scopes:
+  for scope in _MyScopes():
     if name in scope:
       raise ValueError('Injectable %r already exist in scope %r.' %
                        (name, scope.name))
@@ -281,7 +290,7 @@ def _CheckAlreadyInjected(name):
 def Injectable(f):
   """Decorates a callable and creates an injectable in the current Scope."""
   _CheckAlreadyInjected(f.__name__)
-  return _DATA.scopes[-1].Injectable(f)
+  return _MyScopes()[-1].Injectable(f)
 
 
 def _InjectableNamed(name):
@@ -295,7 +304,7 @@ def _InjectableNamed(name):
 
   def Decorator(f):
     _CheckAlreadyInjected(name)
-    return _DATA.scopes[-1].Injectable(f, name=name)
+    return _MyScopes()[-1].Injectable(f, name=name)
   return Decorator
 Injectable.named = _InjectableNamed
 
@@ -350,13 +359,13 @@ Singleton.eager = _EagerSingleton
 def Warmup():
   """Instantiates all the eager singleton injectables."""
   logging.debug('Warming up ALL')
-  for scope in _DATA.scopes:
+  for scope in _MyScopes():
     scope.Warmup()
   logging.debug('Hot ALL')
 
 
 def DumpInjectionStack():
-  for scope in _DATA.scopes:
+  for scope in _MyScopes():
     print scope
 
 
@@ -364,3 +373,8 @@ def SetTestMode(enabled=True):
   """Enter or leave the test mode."""
   global _IN_TEST_MODE
   _IN_TEST_MODE = enabled
+
+
+_ROOT_SCOPE = _Scope(None)  # Create Root scope
+_BASE_SCOPES = [_ROOT_SCOPE]
+_DATA.scopes = _BASE_SCOPES
