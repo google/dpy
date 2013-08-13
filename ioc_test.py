@@ -124,6 +124,43 @@ class Ioc(Describe):
     expect(ScopedFunc()).toEqual((32, 99))
     expect(InjectedFunc).toRaise(ValueError)
 
+  def it_should_support_multiple_threads(self):
+
+    class T(ioc.threading.Thread):
+      @ioc.Inject
+      def run(self, bar=ioc.IN):
+        self.setName(bar)
+
+    ioc.Injectable.value('bar', 'baz')
+    t = T()
+    t.start()
+    t.join()
+
+    expect(t.name).toEqual('baz')
+
+  def it_should_support_the_main_thread_adding_scopes_for_children(self):
+
+    class T(ioc.threading.Thread):
+
+      @ioc.Inject
+      def run(self, bar=ioc.IN):
+        self.setName(bar)
+        expect(len(ioc._MyScopes())).toBe(2)
+
+
+    @ioc.Scope
+    def NewScope():
+      expect(len(ioc._MyScopes())).toBe(2)
+      ioc.Injectable.value('bar', 'baz')
+      t = T()
+      t.start()
+      t.join()
+      return t.name
+
+    expect(len(ioc._MyScopes())).toBe(1)
+    expect(NewScope()).toEqual('baz')
+
+
   def it_should_error_when_layering_injection_wrappers(self):
 
     def InjectInjectable():
