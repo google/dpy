@@ -92,7 +92,7 @@ class _Scope(object):
 
   def __str__(self):
     a = ['Scope %r:' % self.name]
-    if not len(self._gob):
+    if not self._gob:
       a.append('\n  None')
     for key in self._gob:
       a.append('\n  ')
