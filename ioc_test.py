@@ -66,29 +66,43 @@ class Ioc(Describe):
     @ioc.Singleton
     def singleton():
       return object()
-    expect(singleton()).toBe(singleton())
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
+
+    expect(ReturnSingleton()).toBe(ReturnSingleton())
 
   def it_should_support_singleton_classes(self):
+
     @ioc.Injectable
     @ioc.Singleton
     class singleton(object):
       def __init__(self):
         self.bar = object()
 
-    expect(singleton()).toBe(singleton())
-    expect(singleton().bar).toBe(singleton().bar)
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
+
+
+    expect(ReturnSingleton()).toBe(ReturnSingleton())
+    expect(ReturnSingleton().bar).toBe(ReturnSingleton().bar)
 
   def it_should_support_eager_singletons(self):
-    spy = create_spy('singleton')
+    spy = create_spy('eager')
+
     @ioc.Injectable
     @ioc.Singleton.eager
     def singleton():
+      print 'foo'
       spy()
+
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
     ioc.Warmup()
     expect(spy.call_count).toBe(1)
-    singleton()
-    expect(spy.call_count).toBe(1)
-    singleton()
+    ReturnSingleton()
     expect(spy.call_count).toBe(1)
 
   def it_should_support_multiple_scopes(self):
@@ -106,19 +120,21 @@ class Ioc(Describe):
     expect(ScopedFunc()).toEqual((32, 99))
     expect(InjectedFunc).toRaise(ValueError)
 
-  def it_should_error_when_layering_injection_decorators(self):
+  def it_should_error_when_layering_injection_wrappers(self):
 
     def InjectInjectable():
       @ioc.Inject
       @ioc.Injectable
-      def foo():
-        pass
+      def foo(baz=ioc.IN):
+        return baz
 
     def InjectableInject():
       @ioc.Injectable
       @ioc.Inject
-      def foo():
-        pass
+      def bar(baz=ioc.IN):
+        return baz
+
+    ioc.Injectable.value('baz', 42)  # To ensure that foo is wrapped.
 
     expect(InjectInjectable).toRaise(AssertionError)
     expect(InjectableInject).toRaise(AssertionError)
@@ -160,39 +176,6 @@ class Ioc(Describe):
 
     expect(bar).notToRaise(TypeError)
 
-  def it_should_inject_classes(self):
-    class bar(object):
-      def __init__(self, x):
-        self._x = x
-
-    @ioc.Inject
-    @ioc.Singleton
-    class foo(bar):
-      def __init__(self, x=ioc.IN):
-        print 'init b', self, type(self)
-        self._y = x + 5
-        super(foo, self).__init__(x)
-        print 'init a', self, self._y
-      def bar(self):
-        print 'bar   ', self
-        print self._y
-        return self._x
-
-    print 'main  ', foo, type(foo)
-
-    ioc.Injectable.value('x', 42)
-
-    f = foo()
-    print 'main 1', f, type(f)
-
-    expect(f.bar()).toBe(42)
-    expect(f._y).toBe(42 + 5)
-
-    f = foo()
-    print 'main 2', f, type(f)
-
-    expect(f.bar()).toBe(42)
-    expect(f._y).toBe(42 + 5)
 
 class IocTestMode(Describe):
 

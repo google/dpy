@@ -61,18 +61,19 @@ class _Scope(object):
     Returns:
       The wrapped injectable function.
     """
-    f.ioc_injectable = True
-    injectable = Inject(f)
+    injected = _Inject(f)
     if name:
       logging.debug('%r injectable added as %r to scope %r.',
-                    f.__name__, name, self.name)
+                    injected.name, name, self.name)
     else:
-      logging.debug('%r injectable added to scope %r.', f.__name__, self.name)
-      name = f.__name__
+      logging.debug('%r injectable added to scope %r.',
+                    injected.name, self.name)
+      name = injected.name
+    injectable = injected.injectable_wrapper
     self._gob[name] = injectable
-    if hasattr(f, 'ioc_eager'):
+    if injected.eager:
       self._eagers.append(injectable)
-    return injectable
+    return injected.wrapper
 
   def __contains__(self, name):
     return name in self._gob
@@ -122,48 +123,58 @@ def _FillInInjections(injections, arguments):
 
 
 def _GetInjections(argspec):
-  injections = argspec.args[-len(argspec.defaults):] if argspec.defaults else []
-  return tuple(injection for i, injection in enumerate(injections)
-               if argspec.defaults[i] is INJECTED)
+  if not argspec.defaults:
+    return tuple()
+  injections = argspec.args[-len(argspec.defaults):]
+  injections = tuple(injection for i, injection in enumerate(injections)
+                     if argspec.defaults[i] is INJECTED)
+  return injections
 
 
-def _CreateFactoryInjectableWrapper(f, injections):
+def _CreateInjectWrapper(f, injections):
+  if not injections:
+    return f
+
+  @functools.wraps(f)
   def Wrapper(*args, **kwargs):
+    logging.debug('Injecting %r with %r - %r', f.__name__, injections, kwargs)
     _FillInInjections(injections, kwargs)
     return f(*args, **kwargs)
-  return Wrapper
-
-
-def _CreateSingletonInjectableWrapper(f, then, injections):
-  def Wrapper(*args, **kwargs):
-    if not hasattr(f, 'ioc_value'):
-      _FillInInjections(injections, kwargs)
-      setattr(f, 'ioc_value', then(*args, **kwargs))
-    return f.ioc_value
   Wrapper.ioc_wrapper = True
   return Wrapper
 
+def _CreateSingletonInjectableWrapper(f):
+
+  @functools.wraps(f)
+  def Wrapper(*args, **kwargs):
+    logging.debug('Injecting singleton %r', f.__name__)
+    if not hasattr(f, 'ioc_value'):
+      f.ioc_value = f(*args, **kwargs)
+    return f.ioc_value
+  return Wrapper
+
+
 
 class _InjectFunction(object):
+  ALREADY_INJECTED_ERR = 'Already setup for injection.'
   ARGSPEC_ERR = 'Built-ins cannot be injected'
   FULL_INJECTABLE_ERR = 'Injectables must be fully injected.'
-  ALREADY_INJECTED_ERR = 'Already been setup for injection.'
   NOT_INJECTABLE_ERR = 'Requested injectable is not callable.'
   SHORT_ARG_COUNT = 0
 
   def __init__(self, f):
     self.f = f
     self.name = f.__name__
-    self.singleton = hasattr(f, 'ioc_singleton')
-    self.injectable = hasattr(f, 'ioc_injectable')
     self._argspec = None
     self._injections = None
+    self._inject = None
+    self._wrapper = None
 
   @property
   def argspec(self):
     if not self._argspec:
       try:
-        self._argspec = inspect.getargspec(self.argspec_callable)
+        self._argspec = inspect.getargspec(self.callable)
       except TypeError:
         raise ValueError(self.ARGSPEC_ERR)
     return self._argspec
@@ -174,23 +185,45 @@ class _InjectFunction(object):
       self._injections = _GetInjections(self.argspec)
     return self._injections
 
-  def Check(self, argspec, injections):
-    if self.injectable:
-      argspec_len = len(self.argspec.args) - self.SHORT_ARG_COUNT
-      assert argspec_len == len(injections), self.FULL_INJECTABLE_ERR
-    assert callable(self.f), self.NOT_INJECTABLE_ERR
-    assert not hasattr(self.f, 'ioc_wrapper'), self.ALREADY_INJECTED_ERR
+  def Check(self):
+    assert callable(self.callable), self.NOT_INJECTABLE_ERR
+    assert not hasattr(self.callable, 'ioc_wrapper'), self.ALREADY_INJECTED_ERR
+
+  def CheckInjectable(self):
+    argspec_len = len(self.argspec.args) - self.SHORT_ARG_COUNT
+    assert argspec_len == len(self.injections), self.FULL_INJECTABLE_ERR
 
   @property
-  def argspec_callable(self):
+  def singleton(self):
+    return hasattr(self.f, 'ioc_singleton')
+
+  @property
+  def eager(self):
+    return hasattr(self.f, 'ioc_eager')
+
+  @property
+  def callable(self):
     return self.f
 
+  @property
+  def wrapper(self):
+    if not self._wrapper:
+      self.Check()
+      self._wrapper = _CreateInjectWrapper(self.callable, self.injections)
+    return self._wrapper
+
   def __call__(self, *args, **kwargs):
+    if not self._inject:
+      self._inject = self.wrapper
+    return self._inject(*args, **kwargs)
+
+  @property
+  def injectable_wrapper(self):
+    self.CheckInjectable()
     if self.singleton:
-      wrapper =_CreateSingletonInjectableWrapper(self.f, self.argspec_callable, self.injections)
+      return _CreateSingletonInjectableWrapper(self.f)
     else:
-      wrapper = _CreateFactoryInjectableWrapper(self.argspec_callable, self.injections)
-    return wrapper(*args, **kwargs)
+      return self.wrapper
 
 
 class _InjectClass(_InjectFunction):
@@ -198,7 +231,7 @@ class _InjectClass(_InjectFunction):
   SHORT_ARG_COUNT = 1
 
   @property
-  def argspec_callable(self):
+  def callable(self):
     return self.f.__init__
 
   @property
@@ -207,7 +240,7 @@ class _InjectClass(_InjectFunction):
     return self.f
 
 
-def Inject(f):
+def _Inject(f):
   """Function wrapper that will examine the kwargs and wrap when necessary.
 
   Args:
@@ -220,7 +253,12 @@ def Inject(f):
     ValueError: If the argument is not a callable or is already injected.
   """
   inject = _InjectClass(f) if inspect.isclass(f) else _InjectFunction(f)
+  logging.debug('Set up %r for injection', inject.name)
   return inject
+
+def Inject(f):
+  return _Inject(f).wrapper
+
 
 
 def Scope(f):
