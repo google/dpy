@@ -99,7 +99,6 @@ class Ioc(Describe):
     @ioc.Injectable
     @ioc.Singleton.eager
     def singleton():  # pylint: disable=unused-variable
-      print 'foo'
       spy()
 
     @ioc.Inject
