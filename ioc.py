@@ -143,6 +143,7 @@ def _CreateInjectWrapper(f, injections):
   Wrapper.ioc_wrapper = True
   return Wrapper
 
+
 def _CreateSingletonInjectableWrapper(f):
 
   @functools.wraps(f)
@@ -152,7 +153,6 @@ def _CreateSingletonInjectableWrapper(f):
       f.ioc_value = f(*args, **kwargs)
     return f.ioc_value
   return Wrapper
-
 
 
 class _InjectFunction(object):
@@ -256,9 +256,9 @@ def _Inject(f):
   logging.debug('Set up %r for injection', inject.name)
   return inject
 
+
 def Inject(f):
   return _Inject(f).wrapper
-
 
 
 def Scope(f):

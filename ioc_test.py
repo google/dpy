@@ -1,9 +1,12 @@
 #!/usr/bin/python
-import ioc
 import logging
 import sys
-from jazz.jazz import *
-from jazz import mock
+
+import ioc
+from jazz import jazz
+from jazz.jazz import create_spy
+from jazz.jazz import Describe
+from jazz.jazz import expect
 
 if 'debug' in sys.argv:
   logging.getLogger().setLevel(logging.DEBUG)
@@ -17,7 +20,7 @@ class Ioc(Describe):
   def it_should_inject(self):
 
     @ioc.Injectable
-    def foo():
+    def foo():  # pylint: disable=unused-variable
       return 42
 
     @ioc.Inject
@@ -29,7 +32,7 @@ class Ioc(Describe):
   def it_should_allow_overwriting_injectables(self):
 
     @ioc.Injectable
-    def foo():
+    def foo():  # pylint: disable=unused-variable
       return 42
 
     @ioc.Inject
@@ -41,7 +44,7 @@ class Ioc(Describe):
   def it_should_support_naming_injectables(self):
 
     @ioc.Injectable.named('bar')
-    def foo():
+    def foo():  # pylint: disable=unused-variable
       return 42
 
     @ioc.Inject
@@ -62,10 +65,12 @@ class Ioc(Describe):
     expect(foo(bar='candybar')).toEqual('foo candybar')
 
   def it_should_support_singleton_functions(self):
+
     @ioc.Injectable
     @ioc.Singleton
-    def singleton():
+    def singleton():  # pylint: disable=unused-variable
       return object()
+
     @ioc.Inject
     def ReturnSingleton(singleton=ioc.IN):
       return singleton
@@ -73,6 +78,7 @@ class Ioc(Describe):
     expect(ReturnSingleton()).toBe(ReturnSingleton())
 
   def it_should_support_singleton_classes(self):
+    # pylint: disable=unused-variable
 
     @ioc.Injectable
     @ioc.Singleton
@@ -84,7 +90,6 @@ class Ioc(Describe):
     def ReturnSingleton(singleton=ioc.IN):
       return singleton
 
-
     expect(ReturnSingleton()).toBe(ReturnSingleton())
     expect(ReturnSingleton().bar).toBe(ReturnSingleton().bar)
 
@@ -93,7 +98,7 @@ class Ioc(Describe):
 
     @ioc.Injectable
     @ioc.Singleton.eager
-    def singleton():
+    def singleton():  # pylint: disable=unused-variable
       print 'foo'
       spy()
 
@@ -125,13 +130,13 @@ class Ioc(Describe):
     def InjectInjectable():
       @ioc.Inject
       @ioc.Injectable
-      def foo(baz=ioc.IN):
+      def foo(baz=ioc.IN):  # pylint: disable=unused-variable
         return baz
 
     def InjectableInject():
       @ioc.Injectable
       @ioc.Inject
-      def bar(baz=ioc.IN):
+      def bar(baz=ioc.IN):  # pylint: disable=unused-variable
         return baz
 
     ioc.Injectable.value('baz', 42)  # To ensure that foo is wrapped.
@@ -140,6 +145,7 @@ class Ioc(Describe):
     expect(InjectableInject).toRaise(AssertionError)
 
   def it_should_allow_calling_injectables_for_testability(self):
+
     @ioc.Injectable
     def foo(val=ioc.IN):
       return val
@@ -147,6 +153,7 @@ class Ioc(Describe):
     expect(foo(val=99)).toBe(99)
 
   def it_should_detect_name_conflict_in_same_scope(self):
+
     def InjectValue():
       ioc.Injectable.value('val', 42)
 
@@ -163,18 +170,20 @@ class Ioc(Describe):
     expect(ScopedFunc).toRaise(ValueError)
 
   def it_should_require_all_injections(self):
+
     @ioc.Inject
-    def Injected(val=ioc.IN): pass
+    def Injected(val=ioc.IN):
+      return val
     expect(Injected).toRaise(ValueError)
 
   def it_should_not_mangle_classes(self):
 
     @ioc.Inject
-    class bar(object):
+    class Bar(object):
       def __init__(self):
-        super(bar, self).__init__()
+        super(Bar, self).__init__()
 
-    expect(bar).notToRaise(TypeError)
+    expect(Bar).notToRaise(TypeError)
 
 
 class IocTestMode(Describe):
@@ -187,20 +196,20 @@ class IocTestMode(Describe):
     def InjectedFunc(val=ioc.IN):
       return val
 
-    self.InjectedFunc = InjectedFunc
+    self.injected_func = InjectedFunc
     self.injected_value = 42
 
     ioc.Injectable.value('val', self.injected_value)
 
   def it_should_allow_passing_args(self):
-    expect(self.InjectedFunc(val=99)).toBe(99)
+    expect(self.injected_func(val=99)).toBe(99)
 
   def it_should_not_inject(self):
-    expect(self.InjectedFunc).toRaise(ioc.InjectionDuringTestError)
+    expect(self.injected_func).toRaise(ioc.InjectionDuringTestError)
 
   def it_should_allow_passing_none(self):
-    expect(self.InjectedFunc(val=None)).toBeNone()
+    expect(self.injected_func(val=None)).toBeNone()
 
 
 if __name__ == '__main__':
-  run()
+  jazz.run()

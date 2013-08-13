@@ -1,16 +1,18 @@
 #!/usr/bin/python
-#
-# This example run a simple webserver that isolate the parameter injection out
-# of the actual logic. The real logic method Hello is not depending on any of
-# the handler logic and hence it can be easily tested.
-#
-# To test the example, try link:
-#   http://localhost:8000/?greet=Greeting&user=My%20Friend
+"""A simple example using pyoc.
+
+  This example run a simple webserver that isolate the parameter injection out
+  of the actual logic. The real logic method Hello is not depending on any of
+  the handler logic and hence it can be easily tested.
+
+  To test the example, try link:
+    http://localhost:8000/?greet=Greeting&user=My%20Friend
+"""
 import BaseHTTPServer
-import ioc
 import logging
 import urlparse
-from jazz import jazz
+
+import ioc
 
 
 logging.basicConfig(level=logging.DEBUG)
