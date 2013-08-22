@@ -165,7 +165,6 @@ def _CreateSingletonInjectableWrapper(f):
 
 
 class _InjectFunction(object):
-  ALREADY_INJECTED_ERR = 'Already setup for injection.'
   ARGSPEC_ERR = 'Built-ins cannot be injected'
   FULL_INJECTABLE_ERR = 'Injectables must be fully injected.'
   NOT_INJECTABLE_ERR = 'Requested injectable is not callable.'
@@ -194,13 +193,13 @@ class _InjectFunction(object):
       self._injections = _GetInjections(self.argspec)
     return self._injections
 
-  def Check(self):
-    assert callable(self.callable), self.NOT_INJECTABLE_ERR
-    assert not hasattr(self.callable, 'ioc_wrapper'), self.ALREADY_INJECTED_ERR
+  @property
+  def already_injected(self):
+    return hasattr(self.callable, 'ioc_wrapper')
 
   def CheckInjectable(self):
     argspec_len = len(self.argspec.args) - self.SHORT_ARG_COUNT
-    assert argspec_len == len(self.injections), self.FULL_INJECTABLE_ERR
+    assert argspec_len <= len(self.injections), self.FULL_INJECTABLE_ERR
 
   @property
   def singleton(self):
@@ -217,8 +216,11 @@ class _InjectFunction(object):
   @property
   def wrapper(self):
     if not self._wrapper:
-      self.Check()
-      self._wrapper = _CreateInjectWrapper(self.callable, self.injections)
+      assert callable(self.callable), self.NOT_INJECTABLE_ERR
+      if self.already_injected:
+        self._wrapper = self.callable
+      else:
+        self._wrapper = _CreateInjectWrapper(self.callable, self.injections)
     return self._wrapper
 
   def __call__(self, *args, **kwargs):

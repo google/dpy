@@ -161,7 +161,7 @@ class Ioc(Describe):
     expect(NewScope()).toEqual('baz')
 
 
-  def it_should_error_when_layering_injection_wrappers(self):
+  def it_should_tolerate_layering_injection_wrappers(self):
 
     def InjectInjectable():
       @ioc.Inject
@@ -177,8 +177,8 @@ class Ioc(Describe):
 
     ioc.Injectable.value('baz', 42)  # To ensure that foo is wrapped.
 
-    expect(InjectInjectable).toRaise(AssertionError)
-    expect(InjectableInject).toRaise(AssertionError)
+    expect(InjectInjectable).notToRaise(AssertionError)
+    expect(InjectableInject).notToRaise(AssertionError)
 
   def it_should_allow_calling_injectables_for_testability(self):
 
@@ -220,6 +220,19 @@ class Ioc(Describe):
         super(Bar, self).__init__()
 
     expect(Bar).notToRaise(TypeError)
+
+  def it_should_allow_subclassing_injectables(self):
+
+    @ioc.Inject
+    class Foo(object):
+      def __init__(self, bar=ioc.IN):
+        self.bar = bar
+
+    @ioc.Injectable
+    class Bar(Foo): pass
+
+    ioc.Injectable.value('bar', 3)
+    expect(Bar().bar).toBe(3)
 
 
 class IocTestMode(Describe):
