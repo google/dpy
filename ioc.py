@@ -247,6 +247,7 @@ class _InjectClass(_InjectFunction):
 
   @property
   def wrapper(self):
+    self.f.__init_ioc__ = self.f.__init__  # Backup the __init__.
     self.f.__init__ = super(_InjectClass, self).wrapper
     return self.f
 
