@@ -260,5 +260,33 @@ class IocTestMode(Describe):
     expect(self.injected_func(val=None)).toBeNone()
 
 
+class SuperclassTestMode(Describe):
+
+  def before_each(self):
+    reload(ioc)
+    ioc.SetTestMode()
+    ioc.SetSuperclassTestMode(sys.modules[__name__])
+
+  def it_should_support_superclass_testing(self):
+    @ioc.Inject
+    class Foo(object):
+      def __init__(self, bar=ioc.IN):
+        self.bar = bar
+      def method(self):
+        return 99
+
+    @ioc.Injectable
+    class Bar(Foo):
+      def __init__(self):
+        super(Bar, self).__init__()
+
+    ioc.SetClassInjectionArgs(Foo, bar=32)
+    ioc.Injectable.value(bar=42)
+
+    b = Bar()
+    expect(b.bar).toBe(32)
+    expect(b.method()).toBe(99)
+
+
 if __name__ == '__main__':
   jazz.run()

@@ -16,6 +16,7 @@ Example:
 
   Hello()  # This will print 'Hello Anonymous'
 """
+import __builtin__
 import functools
 import inspect
 import logging
@@ -383,3 +384,42 @@ def SetTestMode(enabled=True):
 _ROOT_SCOPE = _Scope(None)  # Create Root scope
 _BASE_SCOPES = [_ROOT_SCOPE]
 _DATA.scopes = _BASE_SCOPES
+
+
+def SetSuperclassTestMode(module, enabled=True):
+  """Enables the testing of superclasses with injections.
+
+  Example:
+    # Enable superclass test mode for your module:
+    ioc.SetSuperclassTestMode(my_module_under_test)
+    # Set defaults for injected arguments on your super class:
+    ioc.SetClassInjectionArgs(my_module_under_test.MyClass, my_injected_arg=42)
+
+  Args:
+    module: The module in which to alter the super() built-in.
+    enabled: Whether to alter the super() built-in or restore it.
+  """
+  def ioc_super(cls, obj):
+    base = inspect.getmro(cls)[1]
+    def Decorator(f):
+      def Wrapper(*args, **kwargs):
+        injections = base.ioc_test_injections.copy()
+        injections.update(kwargs)
+        return f(*args, **injections)
+      return Wrapper
+    try:
+      base.__init__ = functools.partial(Decorator(base.__init__), obj)
+    except TypeError:
+      raise TypeError('You should not call super() with an "object" baseclass.')
+    return base
+  module.super = ioc_super if enabled else __builtin__.super
+
+
+def SetClassInjectionArgs(cls, **kwargs):
+  """Set default test injection args for a class.
+
+  Args:
+    cls: The class for which we'll set default test injection arguments.
+    **kwargs: The arguments to set as defaults.
+  """
+  cls.ioc_test_injections = kwargs
