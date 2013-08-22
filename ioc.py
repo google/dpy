@@ -311,20 +311,22 @@ def _InjectableNamed(name):
 Injectable.named = _InjectableNamed
 
 
-def _InjectableValue(name, value):
+def _InjectableValue(**kwargs):
   """Creates a named injectable value.
 
+  Example:
+    ioc.Injectable.value(bar=42)
+
   Args:
-    name: The name of the object to setup for injection.
-    value: The value of the object to setup for injection.
+    **kwargs: A 1-length dict that has the name of the injectable as the key and
+      the injectable value as the value.
   """
 
   @Singleton
   def Callable():
     pass
-  Callable.__name__ = name
-  Callable.ioc_value = value
-
+  assert len(kwargs) == 1, 'You can only create one injectable value at a time.'
+  Callable.__name__, Callable.ioc_value = kwargs.popitem()
   Injectable(Callable)
 Injectable.value = _InjectableValue
 
