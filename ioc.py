@@ -401,11 +401,14 @@ def _TestInjectionDecorator(f, base):
   Returns:
     A callable wrapper for f.
   """
+  if hasattr(f, 'ioc_test_wrapper'):
+    return f
   @functools.wraps(f)
   def Wrapper(*args, **kwargs):
     injections = base.ioc_test_injections.copy()
     injections.update(kwargs)
     return f(*args, **injections)
+  Wrapper.ioc_test_wrapper = True
   return Wrapper
 
 
@@ -413,9 +416,9 @@ def _Super(cls, obj):
   """A super replacement for use when subclassing an injected class."""
   base = inspect.getmro(cls)[1:][0]
   if hasattr(base, 'ioc_test_injections'):
-    # TODO(wesalvaro): This causes multiple layers of decoration.
     decorator = _TestInjectionDecorator(base.__init__, base)
-    base.__init__ = functools.partial(decorator, obj)
+    if decorator <> base.__init__:
+      base.__init__ = functools.partial(decorator, obj)
     return base
   else:
     return _SUPER_BACKUP(cls, obj)
