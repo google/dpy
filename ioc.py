@@ -25,7 +25,6 @@ import threading
 
 IN = INJECTED = object()
 _IN_TEST_MODE = False
-_SUPER_BACKUP = __builtin__.super
 
 _MAIN_THREAD_ID = threading.currentThread().ident
 _DATA = threading.local()
@@ -381,58 +380,47 @@ def SetTestMode(enabled=True):
 
   Test mode means the following:
     - Injections are _prohibited_ and will cause an AssertionError to be raised.
-    - Classes used as super classes may have their injectable values set.
-      ioc.SetSuperClassInjections(InjectedSuperCls, injected_arg=42)
+    - Classes may have their injectable values set.
+      ioc.SetClassInjections(InjectedCls, injected_arg=42)
+      This functionality should be used for super classes.
   """
   global _IN_TEST_MODE
   _IN_TEST_MODE = enabled
-  if enabled:
-    __builtin__.super = _Super
-  else:
-    __builtin__.super = _SUPER_BACKUP
 
 
-def _WrapSuperClassForTestInjections(base, obj):
+def _WrapClassForTestInjections(cls):
   """Creates a wrapper for injecting during tests.
 
   Args:
-    base: The object where the test "injections" exist.
-    obj: The object instance to be used with init.
+    cls: The class where the test "injections" exist.
   Returns:
     A callable wrapper for init.
   """
-  init = base.__init__
+  init = cls.__init__
   if hasattr(init, 'ioc_test_wrapper'):
     return init
   @functools.wraps(init)
   def Wrapper(*args, **kwargs):
-    injections = base.ioc_test_injections.copy()
+    injections = cls.ioc_test_injections.copy()
     injections.update(kwargs)
     return init(*args, **injections)
-  Wrapper = functools.partial(Wrapper, obj)
   Wrapper.ioc_test_wrapper = True
-  base.__init__ = Wrapper
+  cls.__init__ = Wrapper
 
 
-def _Super(cls, obj):
-  """A super replacement for use when subclassing an injected class."""
-  base = inspect.getmro(cls)[1:][0]
-  if hasattr(base, 'ioc_test_injections'):
-    _WrapSuperClassForTestInjections(base, obj)
-  return _SUPER_BACKUP(cls, obj)
+def SetClassInjections(cls, **kwargs):
+  """Set default test injection args for a class.
 
-
-def SetSuperClassInjections(cls, **kwargs):
-  """Set default test injection args for a super class.
-
-  This function only affects __init__ methods of super classes that are called
-  from one of their sub classes with super(). Any other usage has no effect.
+  This function only affects __init__ methods of and should be reserved for use
+  with super classes that are called from one of their sub classes with super().
+  Any other use is not recommended.
 
   Args:
     cls: The class for which we'll set default test injection arguments.
     **kwargs: The arguments to set as defaults.
   """
   assert _IN_TEST_MODE, 'You may only set class injection args in test mode.'
+  _WrapClassForTestInjections(cls)
   cls.ioc_test_injections = kwargs
 
 

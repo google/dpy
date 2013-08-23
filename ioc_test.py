@@ -250,10 +250,6 @@ class IocTestMode(Describe):
 
     ioc.Injectable.value(val=self.injected_value)
 
-  def after_each(self):
-    # We have to turn off test mode since we're reloading ioc.
-    ioc.SetTestMode(enabled=False)
-
   def it_should_allow_passing_args(self):
     expect(self.injected_func(val=99)).toBe(99)
 
@@ -277,7 +273,7 @@ class IocTestMode(Describe):
       def __init__(self):
         super(Bar, self).__init__()
 
-    ioc.SetSuperClassInjections(Foo, baz=32)
+    ioc.SetClassInjections(Foo, baz=32)
     ioc.Injectable.value(baz=42)
 
     b = Bar()
