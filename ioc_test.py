@@ -300,6 +300,19 @@ class IocTestMode(Describe):
     expect(b.baz).toBe(42)
     expect(b.method()).toBe(99)
 
+  def it_should_work_with_super_classes_multiple_times(self):
+
+    class Foo(object):
+      def __init__(self):
+        self.baz = 42
+
+    class Bar(Foo):
+      def __init__(self):
+        super(Bar, self).__init__()
+
+    expect(Bar().baz).toBe(42)
+    expect(Bar().baz).toBe(42)
+
 
 if __name__ == '__main__':
   jazz.run()

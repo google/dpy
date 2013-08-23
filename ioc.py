@@ -392,33 +392,33 @@ def SetTestMode(enabled=True):
     __builtin__.super = _SUPER_BACKUP
 
 
-def _TestInjectionDecorator(f, base):
+def _WrapSuperClassForTestInjections(base, obj):
   """Creates a wrapper for injecting during tests.
 
   Args:
-    f: The function to "inject".
     base: The object where the test "injections" exist.
+    obj: The object instance to be used with init.
   Returns:
-    A callable wrapper for f.
+    A callable wrapper for init.
   """
-  if hasattr(f, 'ioc_test_wrapper'):
-    return f
-  @functools.wraps(f)
+  init = base.__init__
+  if hasattr(init, 'ioc_test_wrapper'):
+    return init
+  @functools.wraps(init)
   def Wrapper(*args, **kwargs):
     injections = base.ioc_test_injections.copy()
     injections.update(kwargs)
-    return f(*args, **injections)
+    return init(*args, **injections)
+  Wrapper = functools.partial(Wrapper, obj)
   Wrapper.ioc_test_wrapper = True
-  return Wrapper
+  base.__init__ = Wrapper
 
 
 def _Super(cls, obj):
   """A super replacement for use when subclassing an injected class."""
   base = inspect.getmro(cls)[1:][0]
   if hasattr(base, 'ioc_test_injections'):
-    decorator = _TestInjectionDecorator(base.__init__, base)
-    if decorator <> base.__init__:
-      base.__init__ = functools.partial(decorator, obj)
+    _WrapSuperClassForTestInjections(base, obj)
     return base
   else:
     return _SUPER_BACKUP(cls, obj)
