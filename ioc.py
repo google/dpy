@@ -419,9 +419,7 @@ def _Super(cls, obj):
   base = inspect.getmro(cls)[1:][0]
   if hasattr(base, 'ioc_test_injections'):
     _WrapSuperClassForTestInjections(base, obj)
-    return base
-  else:
-    return _SUPER_BACKUP(cls, obj)
+  return _SUPER_BACKUP(cls, obj)
 
 
 def SetSuperClassInjections(cls, **kwargs):
