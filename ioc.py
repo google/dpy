@@ -25,6 +25,7 @@ import threading
 
 IN = INJECTED = object()
 _IN_TEST_MODE = False
+_SUPER_BACKUP = __builtin__.super
 
 _MAIN_THREAD_ID = threading.currentThread().ident
 _DATA = threading.local()
@@ -376,50 +377,64 @@ def DumpInjectionStack():
 
 
 def SetTestMode(enabled=True):
-  """Enter or leave the test mode."""
+  """Enter or leave the test mode.
+
+  Test mode means the following:
+    - Injections are _prohibited_ and will cause an AssertionError to be raised.
+    - Classes used as super classes may have their injectable values set.
+      ioc.SetSuperClassInjections(InjectedSuperCls, injected_arg=42)
+  """
   global _IN_TEST_MODE
   _IN_TEST_MODE = enabled
+  if enabled:
+    __builtin__.super = _Super
+  else:
+    __builtin__.super = _SUPER_BACKUP
 
 
-_ROOT_SCOPE = _Scope(None)  # Create Root scope
-_BASE_SCOPES = [_ROOT_SCOPE]
-_DATA.scopes = _BASE_SCOPES
-
-
-def SetSuperclassTestMode(module, enabled=True):
-  """Enables the testing of superclasses with injections.
-
-  Example:
-    # Enable superclass test mode for your module:
-    ioc.SetSuperclassTestMode(my_module_under_test)
-    # Set defaults for injected arguments on your super class:
-    ioc.SetClassInjectionArgs(my_module_under_test.MyClass, my_injected_arg=42)
+def _TestInjectionDecorator(f, base):
+  """Creates a wrapper for injecting during tests.
 
   Args:
-    module: The module in which to alter the super() built-in.
-    enabled: Whether to alter the super() built-in or restore it.
+    f: The function to "inject".
+    base: The object where the test "injections" exist.
+  Returns:
+    A callable wrapper for f.
   """
-  def ioc_super(cls, obj):
-    base = inspect.getmro(cls)[1]
-    def Decorator(f):
-      def Wrapper(*args, **kwargs):
-        injections = base.ioc_test_injections.copy()
-        injections.update(kwargs)
-        return f(*args, **injections)
-      return Wrapper
-    try:
-      base.__init__ = functools.partial(Decorator(base.__init__), obj)
-    except TypeError:
-      raise TypeError('You should not call super() with an "object" baseclass.')
+  @functools.wraps(f)
+  def Wrapper(*args, **kwargs):
+    injections = base.ioc_test_injections.copy()
+    injections.update(kwargs)
+    return f(*args, **injections)
+  return Wrapper
+
+
+def _Super(cls, obj):
+  """A super replacement for use when subclassing an injected class."""
+  base = inspect.getmro(cls)[1:][0]
+  if hasattr(base, 'ioc_test_injections'):
+    # TODO(wesalvaro): This causes multiple layers of decoration.
+    decorator = _TestInjectionDecorator(base.__init__, base)
+    base.__init__ = functools.partial(decorator, obj)
     return base
-  module.super = ioc_super if enabled else __builtin__.super
+  else:
+    return _SUPER_BACKUP(cls, obj)
 
 
-def SetClassInjectionArgs(cls, **kwargs):
-  """Set default test injection args for a class.
+def SetSuperClassInjections(cls, **kwargs):
+  """Set default test injection args for a super class.
+
+  This function only affects __init__ methods of super classes that are called
+  from one of their sub classes with super(). Any other usage has no effect.
 
   Args:
     cls: The class for which we'll set default test injection arguments.
     **kwargs: The arguments to set as defaults.
   """
+  assert _IN_TEST_MODE, 'You may only set class injection args in test mode.'
   cls.ioc_test_injections = kwargs
+
+
+_ROOT_SCOPE = _Scope(None)  # Create Root scope
+_BASE_SCOPES = [_ROOT_SCOPE]
+_DATA.scopes = _BASE_SCOPES

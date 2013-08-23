@@ -250,6 +250,10 @@ class IocTestMode(Describe):
 
     ioc.Injectable.value(val=self.injected_value)
 
+  def after_each(self):
+    # We have to turn off test mode since we're reloading ioc.
+    ioc.SetTestMode(enabled=False)
+
   def it_should_allow_passing_args(self):
     expect(self.injected_func(val=99)).toBe(99)
 
@@ -259,19 +263,12 @@ class IocTestMode(Describe):
   def it_should_allow_passing_none(self):
     expect(self.injected_func(val=None)).toBeNone()
 
+  def it_should_support_super_class_testing(self):
 
-class SuperclassTestMode(Describe):
-
-  def before_each(self):
-    reload(ioc)
-    ioc.SetTestMode()
-    ioc.SetSuperclassTestMode(sys.modules[__name__])
-
-  def it_should_support_superclass_testing(self):
     @ioc.Inject
     class Foo(object):
-      def __init__(self, bar=ioc.IN):
-        self.bar = bar
+      def __init__(self, baz=ioc.IN):
+        self.baz = baz
       def method(self):
         return 99
 
@@ -280,11 +277,27 @@ class SuperclassTestMode(Describe):
       def __init__(self):
         super(Bar, self).__init__()
 
-    ioc.SetClassInjectionArgs(Foo, bar=32)
-    ioc.Injectable.value(bar=42)
+    ioc.SetSuperClassInjections(Foo, baz=32)
+    ioc.Injectable.value(baz=42)
 
     b = Bar()
-    expect(b.bar).toBe(32)
+    expect(b.baz).toBe(32)
+    expect(b.method()).toBe(99)
+
+  def it_should_work_normally_for_non_injected_classes(self):
+
+    class Foo(object):
+      def __init__(self):
+        self.baz = 42
+      def method(self):
+        return 99
+
+    class Bar(Foo):
+      def __init__(self):
+        super(Bar, self).__init__()
+
+    b = Bar()
+    expect(b.baz).toBe(42)
     expect(b.method()).toBe(99)
 
 
