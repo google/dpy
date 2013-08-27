@@ -16,7 +16,6 @@ Example:
 
   Hello()  # This will print 'Hello Anonymous'
 """
-import __builtin__
 import functools
 import inspect
 import logging
