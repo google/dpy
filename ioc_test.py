@@ -196,14 +196,20 @@ class Ioc(Describe):
     InjectValue()
     expect(InjectValue).toRaise(ValueError)
 
-  def it_should_detect_name_conflict_in_all_parent_scopes(self):
+  def it_should_override_name_in_parent_scope(self):
     ioc.Injectable.value(val=42)
+
+    @ioc.Inject
+    def GetVal(val=ioc.IN):
+      return val
 
     @ioc.Scope
     def ScopedFunc():
       ioc.Injectable.value(val=32)
+      return GetVal()
 
-    expect(ScopedFunc).toRaise(ValueError)
+    expect(GetVal()).toBe(42)
+    expect(ScopedFunc()).toBe(32)
 
   def it_should_require_all_injections(self):
 

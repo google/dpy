@@ -116,6 +116,10 @@ def _MyScopes():
   return _DATA.scopes
 
 
+def _CurrentScope():
+  return _MyScopes()[-1]
+
+
 def _FillInInjections(injections, arguments):
   for injection in injections:
     if injection in arguments: continue
@@ -283,17 +287,17 @@ def Scope(f):
 
 
 def _CheckAlreadyInjected(name):
-  """Checks if an injectable name is already in use."""
-  for scope in _MyScopes():
-    if name in scope:
-      raise ValueError('Injectable %r already exist in scope %r.' %
-                       (name, scope.name))
+  """Checks if an injectable name is already in use in current scope."""
+  curr_scope = _CurrentScope()
+  if name in curr_scope:
+    raise ValueError('Injectable %r already exist in scope %r.' %
+                     (name, curr_scope.name))
 
 
 def Injectable(f):
   """Decorates a callable and creates an injectable in the current Scope."""
   _CheckAlreadyInjected(f.__name__)
-  return _MyScopes()[-1].Injectable(f)
+  return _CurrentScope().Injectable(f)
 
 
 def _InjectableNamed(name):
@@ -307,7 +311,7 @@ def _InjectableNamed(name):
 
   def Decorator(f):
     _CheckAlreadyInjected(name)
-    return _MyScopes()[-1].Injectable(f, name=name)
+    return _CurrentScope().Injectable(f, name=name)
   return Decorator
 Injectable.named = _InjectableNamed
 
@@ -375,13 +379,16 @@ def DumpInjectionStack():
 
 
 def SetTestMode(enabled=True):
-  """Enter or leave the test mode.
+  """Enters or leaves the test mode.
 
   Test mode means the following:
     - Injections are _prohibited_ and will cause an AssertionError to be raised.
     - Classes may have their injectable values set.
       ioc.SetClassInjections(InjectedCls, injected_arg=42)
       This functionality should be used for super classes.
+
+  Args:
+    enabled: True to enable the test mode, false to disable it.
   """
   global _IN_TEST_MODE
   _IN_TEST_MODE = enabled
