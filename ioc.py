@@ -113,7 +113,7 @@ class _Scope(object):
 
 def _MyScopes():
   if not hasattr(_DATA, 'scopes'):
-    _DATA.scopes = _BASE_SCOPES
+    _DATA.scopes = _BASE_SCOPES[:]
   return _DATA.scopes
 
 
