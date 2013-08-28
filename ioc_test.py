@@ -64,51 +64,6 @@ class Ioc(Describe):
     expect(foo()).toEqual('foo bar')
     expect(foo(bar='candybar')).toEqual('foo candybar')
 
-  def it_should_support_singleton_functions(self):
-
-    @ioc.Injectable
-    @ioc.Singleton
-    def singleton():  # pylint: disable=unused-variable
-      return object()
-
-    @ioc.Inject
-    def ReturnSingleton(singleton=ioc.IN):
-      return singleton
-
-    expect(ReturnSingleton()).toBe(ReturnSingleton())
-
-  def it_should_support_singleton_classes(self):
-    # pylint: disable=unused-variable
-
-    @ioc.Injectable
-    @ioc.Singleton
-    class singleton(object):
-      def __init__(self):
-        self.bar = object()
-
-    @ioc.Inject
-    def ReturnSingleton(singleton=ioc.IN):
-      return singleton
-
-    expect(ReturnSingleton()).toBe(ReturnSingleton())
-    expect(ReturnSingleton().bar).toBe(ReturnSingleton().bar)
-
-  def it_should_support_eager_singletons(self):
-    spy = create_spy('eager')
-
-    @ioc.Injectable
-    @ioc.Singleton.eager
-    def singleton():  # pylint: disable=unused-variable
-      spy()
-
-    @ioc.Inject
-    def ReturnSingleton(singleton=ioc.IN):
-      return singleton
-    ioc.Warmup()
-    expect(spy.call_count).toBe(1)
-    ReturnSingleton()
-    expect(spy.call_count).toBe(1)
-
   def it_should_support_multiple_scopes(self):
     ioc.Injectable.value(root=99)
 
@@ -314,6 +269,93 @@ class IocTestMode(Describe):
 
     expect(Bar().baz).toBe(42)
     expect(Bar().baz).toBe(42)
+
+
+class IocSingleton(Describe):
+
+  def before_each(self):
+    reload(ioc)
+
+  def it_should_support_singleton_functions(self):
+
+    @ioc.Injectable
+    @ioc.Singleton
+    def singleton():  # pylint: disable=unused-variable
+      return object()
+
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
+
+    expect(ReturnSingleton()).toBe(ReturnSingleton())
+
+  def it_should_support_injectable_arg_in_singleton_functions(self):
+
+    @ioc.Injectable
+    @ioc.Singleton
+    def singleton(val=ioc.IN):
+      return val
+
+    @ioc.Inject
+    def ReturnSingletonVal(singleton=ioc.IN):
+      return singleton
+
+    val = object()
+    ioc.Injectable.value(val=val)
+
+    expect(ReturnSingletonVal()).toBe(val)
+
+  def it_should_support_singleton_classes(self):
+    # pylint: disable=unused-variable
+
+    @ioc.Injectable
+    @ioc.Singleton
+    class singleton(object):
+      def __init__(self):
+        self.bar = object()
+
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
+
+    expect(ReturnSingleton()).toBe(ReturnSingleton())
+    expect(ReturnSingleton().bar).toBe(ReturnSingleton().bar)
+
+  def it_should_support_injectable_arg_in_singleton_classes(self):
+    # pylint: disable=unused-variable
+
+    @ioc.Injectable
+    @ioc.Singleton
+    class singleton(object):
+      def __init__(self, val=ioc.IN):
+        self.val = val
+
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
+
+    val = object()
+    ioc.Injectable.value(val=val)
+
+    expect(ReturnSingleton()).toBe(ReturnSingleton())
+    expect(ReturnSingleton().val).toBe(val)
+
+
+  def it_should_support_eager_singletons(self):
+    spy = create_spy('eager')
+
+    @ioc.Injectable
+    @ioc.Singleton.eager
+    def singleton():  # pylint: disable=unused-variable
+      spy()
+
+    @ioc.Inject
+    def ReturnSingleton(singleton=ioc.IN):
+      return singleton
+    ioc.Warmup()
+    expect(spy.call_count).toBe(1)
+    ReturnSingleton()
+    expect(spy.call_count).toBe(1)
 
 
 if __name__ == '__main__':

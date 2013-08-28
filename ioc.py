@@ -236,7 +236,7 @@ class _InjectFunction(object):
   def injectable_wrapper(self):
     self.CheckInjectable()
     if self.singleton:
-      return _CreateSingletonInjectableWrapper(self.f)
+      return _CreateSingletonInjectableWrapper(self.wrapper)
     else:
       return self.wrapper
 
@@ -251,7 +251,6 @@ class _InjectClass(_InjectFunction):
 
   @property
   def wrapper(self):
-    self.f.__init_ioc__ = self.f.__init__  # Backup the __init__.
     self.f.__init__ = super(_InjectClass, self).wrapper
     return self.f
 
