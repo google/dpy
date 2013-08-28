@@ -16,7 +16,6 @@ Example:
 
   Hello()  # This will print 'Hello Anonymous'
 """
-import __builtin__
 import functools
 import inspect
 import logging
@@ -115,6 +114,10 @@ def _MyScopes():
   if not hasattr(_DATA, 'scopes'):
     _DATA.scopes = _BASE_SCOPES
   return _DATA.scopes
+
+
+def _CurrentScope():
+  return _MyScopes()[-1]
 
 
 def _FillInInjections(injections, arguments):
@@ -233,7 +236,7 @@ class _InjectFunction(object):
   def injectable_wrapper(self):
     self.CheckInjectable()
     if self.singleton:
-      return _CreateSingletonInjectableWrapper(self.f)
+      return _CreateSingletonInjectableWrapper(self.wrapper)
     else:
       return self.wrapper
 
@@ -248,7 +251,6 @@ class _InjectClass(_InjectFunction):
 
   @property
   def wrapper(self):
-    self.f.__init_ioc__ = self.f.__init__  # Backup the __init__.
     self.f.__init__ = super(_InjectClass, self).wrapper
     return self.f
 
@@ -284,17 +286,17 @@ def Scope(f):
 
 
 def _CheckAlreadyInjected(name):
-  """Checks if an injectable name is already in use."""
-  for scope in _MyScopes():
-    if name in scope:
-      raise ValueError('Injectable %r already exist in scope %r.' %
-                       (name, scope.name))
+  """Checks if an injectable name is already in use in current scope."""
+  curr_scope = _CurrentScope()
+  if name in curr_scope:
+    raise ValueError('Injectable %r already exist in scope %r.' %
+                     (name, curr_scope.name))
 
 
 def Injectable(f):
   """Decorates a callable and creates an injectable in the current Scope."""
   _CheckAlreadyInjected(f.__name__)
-  return _MyScopes()[-1].Injectable(f)
+  return _CurrentScope().Injectable(f)
 
 
 def _InjectableNamed(name):
@@ -308,7 +310,7 @@ def _InjectableNamed(name):
 
   def Decorator(f):
     _CheckAlreadyInjected(name)
-    return _MyScopes()[-1].Injectable(f, name=name)
+    return _CurrentScope().Injectable(f, name=name)
   return Decorator
 Injectable.named = _InjectableNamed
 
@@ -376,13 +378,16 @@ def DumpInjectionStack():
 
 
 def SetTestMode(enabled=True):
-  """Enter or leave the test mode.
+  """Enters or leaves the test mode.
 
   Test mode means the following:
     - Injections are _prohibited_ and will cause an AssertionError to be raised.
     - Classes may have their injectable values set.
       ioc.SetClassInjections(InjectedCls, injected_arg=42)
       This functionality should be used for super classes.
+
+  Args:
+    enabled: True to enable the test mode, false to disable it.
   """
   global _IN_TEST_MODE
   _IN_TEST_MODE = enabled
