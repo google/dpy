@@ -394,7 +394,7 @@ class IocSingleton(Describe):
       # The singleton value should attach to the root scope.
       expect(ParentScope()).toBe(GetSingleton())
 
-    def iit_should_attach_to_parent(self):
+    def it_should_attach_to_parent(self):
       @ioc.Inject
       def GetSingleton(parent_singleton=ioc.IN):
         return parent_singleton
@@ -405,9 +405,9 @@ class IocSingleton(Describe):
 
         @ioc.Scope
         @ioc.Inject
-        def LeafScope(parent_singleton=ioc.IN):
+        def LeafScope():
           # Get parent_singleton for the first time inside leaf scope.
-          return parent_singleton
+          return GetSingleton()
         # The singleton should stay the same even leaf scope is popped.
         expect(LeafScope()).toBe(GetSingleton())
 
