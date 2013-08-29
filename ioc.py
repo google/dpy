@@ -86,6 +86,9 @@ class _Scope(object):
   def __getitem__(self, name):
     return self._gob[name]
 
+  def __iter__(self):
+    return iter(self._gob)
+
   def Warmup(self):
     logging.debug('Warming up: %s', self.name)
     for eager in self._eagers:
@@ -122,16 +125,26 @@ def _CurrentScope():
   return _MyScopes()[-1]
 
 
+def _GetCurrentInjectionScopeMap():
+  """Returns a dict contains all the available injections' information."""
+  injection_scope_map = {}
+  for idx, scope in enumerate(reversed(_MyScopes())):
+    for injection in scope:
+      if injection not in injection_scope_map:
+        injection_scope_map[injection] = (idx, scope, scope[injection])
+  return injection_scope_map
+
+
 def _FillInInjections(injections, arguments):
+  injection_scope_map = _GetCurrentInjectionScopeMap()
+
   for injection in injections:
     if injection in arguments: continue
     if _IN_TEST_MODE:
       raise InjectionDuringTestError(
           'Test mode enabled. Injection arguments are required.')
-    for scope in reversed(_MyScopes()):
-      if injection in scope:
-        arguments[injection] = scope[injection]()
-        break
+    if injection in injection_scope_map:
+      arguments[injection] = injection_scope_map[injection][2]()
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
 
@@ -141,20 +154,23 @@ def _CalculateScopeDep(injections):
   dep_scope_idx = len(_MyScopes())
   dep_scope = _MyScopes()[0]  # root scope
 
+  injection_scope_map = _GetCurrentInjectionScopeMap()
+
   injection_queue = collections.deque(injections)
   while injection_queue:
     injection = injection_queue.popleft()
-    for idx, scope in enumerate(reversed(_MyScopes())):
-      if injection in scope:
-        if hasattr(scope[injection], 'ioc_wrapper'):
-          argspec = inspect.getargspec(scope[injection].ioc_original)
-        else:
-          argspec = inspect.getargspec(scope[injection])
-        injection_queue.extend(_GetInjections(argspec))
-        if idx < dep_scope_idx:
-          dep_scop_idx = idx
-          dep_scope = scope
-          break
+    if injection in injection_scope_map:
+      idx, scope, callable = injection_scope_map[injection]
+
+      # Gets all injections and put into queue.
+      while hasattr(callable, 'ioc_wrapper'):
+        callable = callable.ioc_wrapper
+      argspec = inspect.getargspec(callable)
+      injection_queue.extend(_GetInjections(argspec))
+
+      if idx < dep_scope_idx:
+        dep_scop_idx = idx
+        dep_scope = scope
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
   return dep_scope
@@ -178,8 +194,7 @@ def _CreateInjectWrapper(f, injections):
     logging.debug('Injecting %r with %r - %r', f.__name__, injections, kwargs)
     _FillInInjections(injections, kwargs)
     return f(*args, **kwargs)
-  Wrapper.ioc_wrapper = True
-  Wrapper.ioc_original = f
+  Wrapper.ioc_wrapper = f
   return Wrapper
 
 
@@ -187,8 +202,8 @@ def _CreateSingletonInjectableWrapper(f, injections):
 
   @functools.wraps(f)
   def Wrapper(*args, **kwargs):
-    logging.debug('Injecting singleton %r with %r - %r',
-                  f.__name__, injections, kwargs)
+    logging.debug(
+        'Injecting singleton %r with %r - %r', f.__name__, injections, kwargs)
 
     dep_scope = _CalculateScopeDep(injections)
     if f not in dep_scope.singletons:
@@ -196,11 +211,7 @@ def _CreateSingletonInjectableWrapper(f, injections):
       logging.debug(
           'Attaching singleton %r to scope %s', f.__name__, dep_scope.name)
     return dep_scope.singletons[f]
-  Wrapper.ioc_wrapper = True
-  if hasattr(f, 'ioc_wrapper'):
-    Wrapper.ioc_original = f.ioc_original
-  else:
-    Wrapper.ioc_original = f
+  Wrapper.ioc_wrapper = f
   return Wrapper
 
 
