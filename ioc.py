@@ -151,8 +151,7 @@ def _FillInInjections(injections, arguments):
 
 def _CalculateScopeDep(injections):
   """Returns the deepest required scope inside the current scope tree."""
-  dep_scope_idx = len(_MyScopes())
-  dep_scope = _MyScopes()[0]  # root scope
+  dep_scope_idx, dep_scope = len(_MyScopes()), _MyScopes()[0]
 
   injection_scope_map = _GetCurrentInjectionScopeMap()
 
@@ -162,15 +161,14 @@ def _CalculateScopeDep(injections):
     if injection in injection_scope_map:
       idx, scope, callable = injection_scope_map[injection]
 
-      # Gets all injections and put into queue.
+      # Get all injections and put into queue.
       while hasattr(callable, 'ioc_wrapper'):
-        callable = callable.ioc_wrapper
+        callable = callable.ioc_wrapper  # Get the original callable.
       argspec = inspect.getargspec(callable)
       injection_queue.extend(_GetInjections(argspec))
 
       if idx < dep_scope_idx:
-        dep_scop_idx = idx
-        dep_scope = scope
+        dep_scop_idx, dep_scope = idx, scope
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
   return dep_scope
