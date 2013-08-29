@@ -519,6 +519,7 @@ class IocSingleton(Describe):
       @ioc.Scope
       def ParentScope():
 
+        @ioc.Scope
         def LeafScope():
           ioc.Injectable.value(leaf_val=object())
           expect(GetSingleton()).toBe(GetSingleton())

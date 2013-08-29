@@ -16,6 +16,7 @@ Example:
 
   Hello()  # This will print 'Hello Anonymous'
 """
+import collections
 import functools
 import inspect
 import logging
@@ -122,32 +123,41 @@ def _CurrentScope():
 
 
 def _FillInInjections(injections, arguments):
-  dep_scope_idx = len(_MyScopes())
-  dep_scope = _MyScopes()[0]  # root scope
-
   for injection in injections:
     if injection in arguments: continue
     if _IN_TEST_MODE:
       raise InjectionDuringTestError(
           'Test mode enabled. Injection arguments are required.')
-    for idx, scope in enumerate(reversed(_MyScopes())):
+    for scope in reversed(_MyScopes()):
       if injection in scope:
-
-        if idx < dep_scope_idx:
-          dep_scope_idx = idx
-          dep_scope = scope
-
         arguments[injection] = scope[injection]()
         break
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
 
-  return dep_scope
-
 
 def _CalculateScopeDep(injections):
   """Returns the deepest required scope inside the current scope tree."""
-  return _FillInInjections(injections, {})
+  dep_scope_idx = len(_MyScopes())
+  dep_scope = _MyScopes()[0]  # root scope
+
+  injection_queue = collections.deque(injections)
+  while injection_queue:
+    injection = injection_queue.popleft()
+    for idx, scope in enumerate(reversed(_MyScopes())):
+      if injection in scope:
+        if hasattr(scope[injection], 'ioc_wrapper'):
+          argspec = inspect.getargspec(scope[injection].ioc_original)
+        else:
+          argspec = inspect.getargspec(scope[injection])
+        injection_queue.extend(_GetInjections(argspec))
+        if idx < dep_scope_idx:
+          dep_scop_idx = idx
+          dep_scope = scope
+          break
+    else:
+      raise ValueError('The injectable named %r was not found.' % injection)
+  return dep_scope
 
 
 def _GetInjections(argspec):
@@ -169,6 +179,7 @@ def _CreateInjectWrapper(f, injections):
     _FillInInjections(injections, kwargs)
     return f(*args, **kwargs)
   Wrapper.ioc_wrapper = True
+  Wrapper.ioc_original = f
   return Wrapper
 
 
@@ -182,9 +193,14 @@ def _CreateSingletonInjectableWrapper(f, injections):
     dep_scope = _CalculateScopeDep(injections)
     if f not in dep_scope.singletons:
       dep_scope.singletons[f] = f(*args, **kwargs)
-      logging.debug('Attaching singleton %r to scope %s', f, dep_scope)
+      logging.debug(
+          'Attaching singleton %r to scope %s', f.__name__, dep_scope.name)
     return dep_scope.singletons[f]
   Wrapper.ioc_wrapper = True
+  if hasattr(f, 'ioc_wrapper'):
+    Wrapper.ioc_original = f.ioc_original
+  else:
+    Wrapper.ioc_original = f
   return Wrapper
 
 
