@@ -386,7 +386,6 @@ class IocSingleton(Describe):
       @ioc.Scope
       def ParentScope():
         @ioc.Scope
-        @ioc.Inject
         def LeafScope():
           # Get root_singleton for the first time inside leaf scope.
           return GetSingleton()
@@ -405,7 +404,6 @@ class IocSingleton(Describe):
         ioc.Injectable.value(parent_val=object())
 
         @ioc.Scope
-        @ioc.Inject
         def LeafScope():
           # Get parent_singleton for the first time inside leaf scope.
           return GetSingleton()
@@ -425,7 +423,6 @@ class IocSingleton(Describe):
       def ParentScope():
 
         @ioc.Scope
-        @ioc.Inject
         def LeafScope():
           ioc.Injectable.value(leaf_val=object())
           return GetSingleton()
@@ -463,7 +460,6 @@ class IocSingleton(Describe):
       def ParentScope():
 
         @ioc.Scope
-        @ioc.Inject
         def LeafScope():
           # Get root_singleton for the first time inside leaf scope.
           return GetSingleton()
@@ -482,7 +478,6 @@ class IocSingleton(Describe):
         ioc.Injectable.value(parent_val=object())
 
         @ioc.Scope
-        @ioc.Inject
         def LeafScope():
           # Get parent_singleton for the first time inside leaf scope.
           return GetSingleton()
@@ -502,7 +497,6 @@ class IocSingleton(Describe):
       def ParentScope():
 
         @ioc.Scope
-        @ioc.Inject
         def LeafScope():
           ioc.Injectable.value(leaf_val=object())
           return GetSingleton()
@@ -513,6 +507,30 @@ class IocSingleton(Describe):
 
       ParentScope()
 
+    def it_should_track_recursive_dep_and_attach_to_the_deepest(self):
+      @ioc.Injectable
+      def parent_val(leaf_val=ioc.IN):
+        return leaf_val
+
+      @ioc.Inject
+      def GetSingleton(parent_singleton=ioc.IN):
+        return parent_singleton
+
+      @ioc.Scope
+      def ParentScope():
+
+        def LeafScope():
+          ioc.Injectable.value(leaf_val=object())
+          expect(GetSingleton()).toBe(GetSingleton())
+          return GetSingleton()
+
+        expect(LeafScope()).notToBeNone()
+        # parent_singleton should attach to leaf because parent_val depends on
+        # leaf_val
+        expect(GetSingleton).toRaise(ValueError)
+
+      ParentScope()
+      expect(GetSingleton).toRaise(ValueError)
 
 if __name__ == '__main__':
   jazz.run()
