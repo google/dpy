@@ -151,8 +151,7 @@ def _FillInInjections(injections, arguments):
 
 def _CalculateScopeDep(injections):
   """Returns the deepest required scope inside the current scope tree."""
-  dep_scope_idx, dep_scope = len(_MyScopes()), _MyScopes()[0]
-
+  dep_scope_idx, dep_scope = len(_MyScopes()), _MyScopes()[0]  # root scope.
   injection_scope_map = _GetCurrentInjectionScopeMap()
 
   injection_queue = collections.deque(injections)
