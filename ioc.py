@@ -66,6 +66,7 @@ class _Scope(object):
     Returns:
       The wrapped injectable function.
     """
+    _ResetInjectionScopeMap()
     injected = _Inject(f)
     if name:
       logging.debug('%r injectable added as %r to scope %r.',
@@ -112,6 +113,7 @@ class _Scope(object):
       scopes.append(self)
 
   def __exit__(self, t, v, tb):
+    _ResetInjectionScopeMap()
     _MyScopes().pop()
 
 
@@ -125,14 +127,23 @@ def _CurrentScope():
   return _MyScopes()[-1]
 
 
+def _ResetInjectionScopeMap():
+  """Delete the injection_scope_map to force the recalculate."""
+  if hasattr(_DATA, 'injection_scope_map'):
+    del _DATA.injection_scope_map
+
+
 def _GetCurrentInjectionScopeMap():
-  """Returns a dict contains all the available injections' information."""
-  injection_scope_map = {}
-  for idx, scope in enumerate(reversed(_MyScopes())):
-    for injection in scope:
-      if injection not in injection_scope_map:
-        injection_scope_map[injection] = (idx, scope, scope[injection])
-  return injection_scope_map
+  """Returns a dict contains the required injections' information for filling
+  and calculating scope dependency."""
+  if not hasattr(_DATA, 'injection_scope_map'):
+    injection_scope_map = {}
+    for idx, scope in enumerate(reversed(_MyScopes())):
+      for injection in scope:
+        if injection not in injection_scope_map:
+          injection_scope_map[injection] = (idx, scope, scope[injection])
+    _DATA.injection_scope_map = injection_scope_map
+  return _DATA.injection_scope_map
 
 
 def _FillInInjections(injections, arguments):
@@ -158,16 +169,16 @@ def _CalculateScopeDep(injections):
   while injection_queue:
     injection = injection_queue.popleft()
     if injection in injection_scope_map:
-      idx, scope, callable = injection_scope_map[injection]
+      idx, scope, callable_func = injection_scope_map[injection]
 
       # Get all injections and put into queue.
-      while hasattr(callable, 'ioc_wrapper'):
-        callable = callable.ioc_wrapper  # Get the original callable.
-      argspec = inspect.getargspec(callable)
+      while hasattr(callable_func, 'ioc_wrapper'):
+        callable_func = callable_func.ioc_wrapper  # Get the original callable.
+      argspec = inspect.getargspec(callable_func)
       injection_queue.extend(_GetInjections(argspec))
 
       if idx < dep_scope_idx:
-        dep_scop_idx, dep_scope = idx, scope
+        dep_scope_idx, dep_scope = idx, scope
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
   return dep_scope
@@ -201,13 +212,16 @@ def _CreateSingletonInjectableWrapper(f, injections):
   def Wrapper(*args, **kwargs):
     logging.debug(
         'Injecting singleton %r with %r - %r', f.__name__, injections, kwargs)
+    for scope in _MyScopes():
+      if f.__name__ in scope.singletons:
+        return scope.singletons[f.__name__]
 
+    # Couldn't find it in current scope tree.
     dep_scope = _CalculateScopeDep(injections)
-    if f not in dep_scope.singletons:
-      dep_scope.singletons[f] = f(*args, **kwargs)
-      logging.debug(
-          'Attaching singleton %r to scope %s', f.__name__, dep_scope.name)
-    return dep_scope.singletons[f]
+    dep_scope.singletons[f.__name__] = f(*args, **kwargs)
+    logging.debug(
+        'Attaching singleton %r to scope %s', f.__name__, dep_scope.name)
+    return dep_scope.singletons[f.__name__]
   Wrapper.ioc_wrapper = f
   return Wrapper
 
