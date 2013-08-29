@@ -133,9 +133,12 @@ def _ResetInjectionScopeMap():
     del _DATA.injection_scope_map
 
 
-def _GetCurrentInjectionScopeMap():
-  """Returns a dict contains the required injections' information for filling
-  and calculating scope dependency."""
+def _GetCurrentInjectionInfo():
+  """Returns a dict contains the required injections' information.
+
+  This method is used to provide information for filling injection and
+  calculating scope dependency.
+  """
   if not hasattr(_DATA, 'injection_scope_map'):
     injection_scope_map = {}
     for idx, scope in enumerate(reversed(_MyScopes())):
@@ -147,7 +150,7 @@ def _GetCurrentInjectionScopeMap():
 
 
 def _FillInInjections(injections, arguments):
-  injection_scope_map = _GetCurrentInjectionScopeMap()
+  injection_scope_map = _GetCurrentInjectionInfo()
 
   for injection in injections:
     if injection in arguments: continue
@@ -163,7 +166,7 @@ def _FillInInjections(injections, arguments):
 def _CalculateScopeDep(injections):
   """Returns the deepest required scope inside the current scope tree."""
   dep_scope_idx, dep_scope = len(_MyScopes()), _MyScopes()[0]  # root scope.
-  injection_scope_map = _GetCurrentInjectionScopeMap()
+  injection_scope_map = _GetCurrentInjectionInfo()
 
   injection_queue = collections.deque(injections)
   while injection_queue:
