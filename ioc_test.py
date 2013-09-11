@@ -340,7 +340,6 @@ class IocSingleton(Describe):
     expect(ReturnSingleton()).toBe(ReturnSingleton())
     expect(ReturnSingleton().val).toBe(val)
 
-
   def it_should_support_eager_singletons(self):
     spy = create_spy('eager')
 
@@ -357,6 +356,182 @@ class IocSingleton(Describe):
     ReturnSingleton()
     expect(spy.call_count).toBe(1)
 
+
+  class ScopedSingletonClass(Describe):
+
+    def before_each(self):
+      @ioc.Injectable.named('root_singleton')
+      @ioc.Singleton
+      class RootSingleton(object):
+        def __init__(self):
+          pass
+
+      @ioc.Injectable.named('parent_singleton')
+      @ioc.Singleton
+      class ParentSingleton(object):
+        def __init__(self, parent_val=ioc.IN):
+          self.val = parent_val
+
+      @ioc.Injectable.named('leaf_singleton')
+      @ioc.Singleton
+      class LeafSingleton(object):
+        def __init__(self, leaf_val=ioc.IN):
+          self.val = leaf_val
+
+    def it_should_attach_to_root(self):
+      @ioc.Inject
+      def GetSingleton(root_singleton=ioc.IN):
+        return root_singleton
+
+      @ioc.Scope
+      def ParentScope():
+        @ioc.Scope
+        def LeafScope():
+          # Get root_singleton for the first time inside leaf scope.
+          return GetSingleton()
+        return LeafScope()
+
+      # The singleton value should attach to the root scope.
+      expect(ParentScope()).toBe(GetSingleton())
+
+    def it_should_attach_to_parent(self):
+      @ioc.Inject
+      def GetSingleton(parent_singleton=ioc.IN):
+        return parent_singleton
+
+      @ioc.Scope
+      def ParentScope():
+        ioc.Injectable.value(parent_val=object())
+
+        @ioc.Scope
+        def LeafScope():
+          # Get parent_singleton for the first time inside leaf scope.
+          return GetSingleton()
+        # The singleton should stay the same even leaf scope is popped.
+        expect(LeafScope()).toBe(GetSingleton())
+
+      ParentScope()
+      # parent_singleton should have been popped.
+      expect(GetSingleton).toRaise(ValueError)
+
+    def it_should_attach_to_leaf(self):
+      @ioc.Inject
+      def GetSingleton(leaf_singleton=ioc.IN):
+        return leaf_singleton
+
+      @ioc.Scope
+      def ParentScope():
+
+        @ioc.Scope
+        def LeafScope():
+          ioc.Injectable.value(leaf_val=object())
+          return GetSingleton()
+
+        expect(LeafScope()).notToBeNone()
+        # leaf_singleton should have been popped.
+        expect(GetSingleton).toRaise(ValueError)
+
+      ParentScope()
+
+  class ScopedSingletonFunction(Describe):
+
+    def before_each(self):
+      @ioc.Injectable
+      @ioc.Singleton
+      def root_singleton():
+        return object()
+
+      @ioc.Injectable
+      @ioc.Singleton
+      def parent_singleton(parent_val=ioc.IN):
+        return object()
+
+      @ioc.Injectable
+      @ioc.Singleton
+      def leaf_singleton(leaf_val=ioc.IN):
+        return object()
+
+    def it_should_attach_to_root(self):
+      @ioc.Inject
+      def GetSingleton(root_singleton=ioc.IN):
+        return root_singleton
+
+      @ioc.Scope
+      def ParentScope():
+
+        @ioc.Scope
+        def LeafScope():
+          # Get root_singleton for the first time inside leaf scope.
+          return GetSingleton()
+        return LeafScope()
+
+      # The singleton value should attach to the root scope.
+      expect(ParentScope()).toBe(GetSingleton())
+
+    def it_should_attach_to_parent(self):
+      @ioc.Inject
+      def GetSingleton(parent_singleton=ioc.IN):
+        return parent_singleton
+
+      @ioc.Scope
+      def ParentScope():
+        ioc.Injectable.value(parent_val=object())
+
+        @ioc.Scope
+        def LeafScope():
+          # Get parent_singleton for the first time inside leaf scope.
+          return GetSingleton()
+        # The singleton should stay the same even leaf scope is popped.
+        expect(LeafScope()).toBe(GetSingleton())
+
+      ParentScope()
+      # parent_singleton should have been popped.
+      expect(GetSingleton).toRaise(ValueError)
+
+    def it_should_attach_to_leaf(self):
+      @ioc.Inject
+      def GetSingleton(leaf_singleton=ioc.IN):
+        return leaf_singleton
+
+      @ioc.Scope
+      def ParentScope():
+
+        @ioc.Scope
+        def LeafScope():
+          ioc.Injectable.value(leaf_val=object())
+          return GetSingleton()
+
+        expect(LeafScope()).notToBeNone()
+        # leaf_singleton should have been popped.
+        expect(GetSingleton).toRaise(ValueError)
+
+      ParentScope()
+
+    def it_should_track_recursive_dep_and_attach_to_the_deepest(self):
+      @ioc.Injectable
+      def parent_val(leaf_val=ioc.IN):
+        return leaf_val
+
+      @ioc.Inject
+      def GetSingleton(parent_singleton=ioc.IN):
+        return parent_singleton
+
+      @ioc.Scope
+      def ParentScope():
+
+        @ioc.Scope
+        def LeafScope():
+          ioc.Injectable.value(leaf_val=object())
+          expect(GetSingleton()).toBe(GetSingleton())
+          return GetSingleton()
+
+        expect(LeafScope()).notToBeNone()
+        # parent_singleton should attach to leaf because parent_val depends on
+        # leaf_val
+        expect(GetSingleton).toRaise(ValueError)
+
+      ParentScope()
+      expect(GetSingleton).toRaise(ValueError)
 
 if __name__ == '__main__':
   jazz.run()

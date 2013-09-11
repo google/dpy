@@ -16,6 +16,7 @@ Example:
 
   Hello()  # This will print 'Hello Anonymous'
 """
+import collections
 import functools
 import inspect
 import logging
@@ -43,6 +44,7 @@ class _Scope(object):
     self.func = f
     self._gob = {}
     self._eagers = []
+    self.singletons = {}
 
   @property
   def name(self):
@@ -64,6 +66,7 @@ class _Scope(object):
     Returns:
       The wrapped injectable function.
     """
+    _ResetInjectionScopeMap()
     injected = _Inject(f)
     if name:
       logging.debug('%r injectable added as %r to scope %r.',
@@ -83,6 +86,9 @@ class _Scope(object):
 
   def __getitem__(self, name):
     return self._gob[name]
+
+  def __iter__(self):
+    return iter(self._gob)
 
   def Warmup(self):
     logging.debug('Warming up: %s', self.name)
@@ -107,6 +113,7 @@ class _Scope(object):
       scopes.append(self)
 
   def __exit__(self, t, v, tb):
+    _ResetInjectionScopeMap()
     _MyScopes().pop()
 
 
@@ -120,18 +127,64 @@ def _CurrentScope():
   return _MyScopes()[-1]
 
 
+def _ResetInjectionScopeMap():
+  """Delete the injection_scope_map to force the recalculate."""
+  if hasattr(_DATA, 'injection_scope_map'):
+    del _DATA.injection_scope_map
+
+
+def _GetCurrentInjectionInfo():
+  """Returns a dict contains the required injections' information.
+
+  This method is used to provide information for filling injection and
+  calculating scope dependency.
+  """
+  if not hasattr(_DATA, 'injection_scope_map'):
+    injection_scope_map = {}
+    for idx, scope in enumerate(reversed(_MyScopes())):
+      for injection in scope:
+        if injection not in injection_scope_map:
+          injection_scope_map[injection] = (idx, scope, scope[injection])
+    _DATA.injection_scope_map = injection_scope_map
+  return _DATA.injection_scope_map
+
+
 def _FillInInjections(injections, arguments):
+  injection_scope_map = _GetCurrentInjectionInfo()
+
   for injection in injections:
     if injection in arguments: continue
     if _IN_TEST_MODE:
       raise InjectionDuringTestError(
           'Test mode enabled. Injection arguments are required.')
-    for scope in reversed(_MyScopes()):
-      if injection in scope:
-        arguments[injection] = scope[injection]()
-        break
+    if injection in injection_scope_map:
+      arguments[injection] = injection_scope_map[injection][2]()
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
+
+
+def _CalculateScopeDep(injections):
+  """Returns the deepest required scope inside the current scope tree."""
+  dep_scope_idx, dep_scope = len(_MyScopes()), _MyScopes()[0]  # root scope.
+  injection_scope_map = _GetCurrentInjectionInfo()
+
+  injection_queue = collections.deque(injections)
+  while injection_queue:
+    injection = injection_queue.popleft()
+    if injection in injection_scope_map:
+      idx, scope, callable_func = injection_scope_map[injection]
+
+      # Get all injections and put into queue.
+      while hasattr(callable_func, 'ioc_wrapper'):
+        callable_func = callable_func.ioc_wrapper  # Get the original callable.
+      argspec = inspect.getargspec(callable_func)
+      injection_queue.extend(_GetInjections(argspec))
+
+      if idx < dep_scope_idx:
+        dep_scope_idx, dep_scope = idx, scope
+    else:
+      raise ValueError('The injectable named %r was not found.' % injection)
+  return dep_scope
 
 
 def _GetInjections(argspec):
@@ -152,19 +205,27 @@ def _CreateInjectWrapper(f, injections):
     logging.debug('Injecting %r with %r - %r', f.__name__, injections, kwargs)
     _FillInInjections(injections, kwargs)
     return f(*args, **kwargs)
-  Wrapper.ioc_wrapper = True
+  Wrapper.ioc_wrapper = f
   return Wrapper
 
 
-def _CreateSingletonInjectableWrapper(f):
+def _CreateSingletonInjectableWrapper(f, injections):
 
   @functools.wraps(f)
   def Wrapper(*args, **kwargs):
-    logging.debug('Injecting singleton %r', f.__name__)
-    if not hasattr(f, 'ioc_value'):
-      f.ioc_value = f(*args, **kwargs)
-    return f.ioc_value
-  Wrapper.ioc_singleton = True
+    logging.debug(
+        'Injecting singleton %r with %r - %r', f.__name__, injections, kwargs)
+    for scope in _MyScopes():
+      if f.__name__ in scope.singletons:
+        return scope.singletons[f.__name__]
+
+    # Couldn't find it in current scope tree.
+    dep_scope = _CalculateScopeDep(injections)
+    dep_scope.singletons[f.__name__] = f(*args, **kwargs)
+    logging.debug(
+        'Attaching singleton %r to scope %s', f.__name__, dep_scope.name)
+    return dep_scope.singletons[f.__name__]
+  Wrapper.ioc_wrapper = f
   return Wrapper
 
 
@@ -202,6 +263,7 @@ class _InjectFunction(object):
     return hasattr(self.callable, 'ioc_wrapper')
 
   def CheckInjectable(self):
+    """Checks if all the arguments are injected."""
     argspec_len = len(self.argspec.args) - self.SHORT_ARG_COUNT
     assert argspec_len <= len(self.injections), self.FULL_INJECTABLE_ERR
 
@@ -219,6 +281,7 @@ class _InjectFunction(object):
 
   @property
   def wrapper(self):
+    """Returns a wrapper that will call the function with injected arguments."""
     if not self._wrapper:
       assert callable(self.callable), self.NOT_INJECTABLE_ERR
       if self.already_injected:
@@ -234,9 +297,10 @@ class _InjectFunction(object):
 
   @property
   def injectable_wrapper(self):
+    """Returns a wrapper that can be used to produce value for injection."""
     self.CheckInjectable()
     if self.singleton:
-      return _CreateSingletonInjectableWrapper(self.wrapper)
+      return _CreateSingletonInjectableWrapper(self.wrapper, self.injections)
     else:
       return self.wrapper
 
@@ -325,12 +389,12 @@ def _InjectableValue(**kwargs):
     **kwargs: A 1-length dict that has the name of the injectable as the key and
       the injectable value as the value.
   """
-
-  @Singleton
-  def Callable():
-    pass
   assert len(kwargs) == 1, 'You can only create one injectable value at a time.'
-  Callable.__name__, Callable.ioc_value = kwargs.popitem()
+  name, ioc_value = kwargs.popitem()
+
+  def Callable():
+    return ioc_value
+  Callable.__name__ = name
   Injectable(Callable)
 Injectable.value = _InjectableValue
 
