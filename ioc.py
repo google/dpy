@@ -133,6 +133,10 @@ def _ResetInjectionScopeMap():
     del _DATA.injection_scope_map
 
 
+InjectionScope = collections.namedtuple('InjectionScope',
+                                        ['idx', 'scope', 'callable'])
+
+
 def _GetCurrentInjectionInfo():
   """Returns a dict contains the required injections' information.
 
@@ -144,7 +148,8 @@ def _GetCurrentInjectionInfo():
     for idx, scope in enumerate(reversed(_MyScopes())):
       for injection in scope:
         if injection not in injection_scope_map:
-          injection_scope_map[injection] = (idx, scope, scope[injection])
+          injection_scope_map[injection] = InjectionScope(idx, scope,
+                                                          scope[injection])
     _DATA.injection_scope_map = injection_scope_map
   return _DATA.injection_scope_map
 
@@ -158,7 +163,7 @@ def _FillInInjections(injections, arguments):
       raise InjectionDuringTestError(
           'Test mode enabled. Injection arguments are required.')
     if injection in injection_scope_map:
-      arguments[injection] = injection_scope_map[injection][2]()
+      arguments[injection] = injection_scope_map[injection].callable()
     else:
       raise ValueError('The injectable named %r was not found.' % injection)
 
@@ -171,19 +176,20 @@ def _CalculateScopeDep(injections):
   injection_queue = collections.deque(injections)
   while injection_queue:
     injection = injection_queue.popleft()
-    if injection in injection_scope_map:
-      idx, scope, callable_func = injection_scope_map[injection]
-
-      # Get all injections and put into queue.
-      while hasattr(callable_func, 'ioc_wrapper'):
-        callable_func = callable_func.ioc_wrapper  # Get the original callable.
-      argspec = inspect.getargspec(callable_func)
-      injection_queue.extend(_GetInjections(argspec))
-
-      if idx < dep_scope_idx:
-        dep_scope_idx, dep_scope = idx, scope
-    else:
+    if injection not in injection_scope_map:
       raise ValueError('The injectable named %r was not found.' % injection)
+
+    idx, scope, callable_func = injection_scope_map[injection]
+
+    # Get all injections and put into queue.
+    while hasattr(callable_func, 'ioc_wrapper'):
+      callable_func = callable_func.ioc_wrapper  # Get the original callable.
+    argspec = inspect.getargspec(callable_func)
+    injection_queue.extend(_GetInjections(argspec))
+
+    if idx < dep_scope_idx:
+      dep_scope_idx, dep_scope = idx, scope
+
   return dep_scope
 
 
