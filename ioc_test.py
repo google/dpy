@@ -77,7 +77,7 @@ class Ioc(Describe):
       return InjectedFunc()
 
     expect(ScopedFunc()).toEqual((32, 99))
-    expect(InjectedFunc).toRaise(ValueError)
+    expect(InjectedFunc).toRaise(ioc.InjectionMissingError)
 
   def it_should_support_multiple_threads(self):
 
@@ -171,7 +171,7 @@ class Ioc(Describe):
     @ioc.Inject
     def Injected(val=ioc.IN):
       return val
-    expect(Injected).toRaise(ValueError)
+    expect(Injected).toRaise(ioc.InjectionMissingError)
 
   def it_should_not_mangle_classes(self):
 
@@ -215,11 +215,11 @@ class IocTestMode(Describe):
     expect(self.injected_func(val=99)).toBe(99)
 
   def it_should_not_inject(self):
-    expect(self.injected_func).toRaise(ValueError)
+    expect(self.injected_func).toRaise(ioc.TestInjectionsNotSetupError)
 
   def it_should_raise_missing_injection_errors(self):
     ioc.SetUpTestInjections(foo=32)
-    expect(self.injected_func).toRaise(ValueError)
+    expect(self.injected_func).toRaise(ioc.InjectionMissingError)
 
   def it_should_allow_passing_none(self):
     expect(self.injected_func(val=None)).toBeNone()
@@ -233,7 +233,7 @@ class IocTestMode(Describe):
   def it_should_support_clearing_test_scope(self):
     ioc.SetUpTestInjections(val=32)
     ioc.TearDownTestInjections()
-    expect(self.injected_func).toRaise(ValueError)
+    expect(self.injected_func).toRaise(ioc.TestInjectionsNotSetupError)
 
 
   def it_should_support_injecting_functions(self):

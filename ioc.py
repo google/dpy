@@ -35,8 +35,12 @@ class Error(Exception):
   """Base Error class of ioc module."""
 
 
-class InjectionDuringTestError(Error):
-  """When injection happened when the test mode is enabled."""
+class InjectionMissingError(Error):
+  """When an injection is requested, but not available."""
+
+
+class TestInjectionsNotSetupError(Error):
+  """When injection is requested without a set up test scope."""
 
 
 class _Scope(object):
@@ -163,12 +167,14 @@ def _FillInInjections(injections, arguments):
     try:
       if _IN_TEST_MODE:
         if _TEST_SCOPE is None:
-          raise ValueError('Test injections have not been setup.')
+          raise TestInjectionsNotSetupError(
+              'Test injections have not been setup.')
         arguments[injection] = _TEST_SCOPE[injection]()
       else:
         arguments[injection] = injection_scope_map[injection].callable()
     except KeyError:
-      raise ValueError('The injectable named %r was not found.' % injection)
+      raise InjectionMissingError(
+          'The injectable named %r was not found.' % injection)
 
 
 def _CalculateScopeDep(injections):
