@@ -235,7 +235,6 @@ class IocTestMode(Describe):
     ioc.TearDownTestInjections()
     expect(self.injected_func).toRaise(ioc.TestInjectionsNotSetupError)
 
-
   def it_should_support_injecting_functions(self):
     ioc.SetUpTestInjections(val=32)
     expect(self.injected_func()).toBe(32)
