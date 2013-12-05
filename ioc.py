@@ -473,6 +473,11 @@ def SetTestMode(enabled=True):
 
 
 def SetUpTestInjections(**kwargs):
+  """Sets up injectable values for testing.
+
+  Args:
+    **kwargs: name and values for the injectables to be created.
+  """
   global _TEST_SCOPE
   _TEST_SCOPE = _Scope(None)
   for name, value in kwargs.iteritems():
@@ -483,6 +488,7 @@ def SetUpTestInjections(**kwargs):
 
 
 def TearDownTestInjections():
+  """Tears down any injections set up for testing."""
   global _TEST_SCOPE
   _TEST_SCOPE = None
 
