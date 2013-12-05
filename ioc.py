@@ -25,6 +25,7 @@ import threading
 
 IN = INJECTED = object()
 _IN_TEST_MODE = False
+_TEST_SCOPE = None
 
 _MAIN_THREAD_ID = threading.currentThread().ident
 _DATA = threading.local()
@@ -159,12 +160,14 @@ def _FillInInjections(injections, arguments):
 
   for injection in injections:
     if injection in arguments: continue
-    if _IN_TEST_MODE:
-      raise InjectionDuringTestError(
-          'Test mode enabled. Injection arguments are required.')
-    if injection in injection_scope_map:
-      arguments[injection] = injection_scope_map[injection].callable()
-    else:
+    try:
+      if _IN_TEST_MODE:
+        if _TEST_SCOPE is None:
+          raise ValueError('Test injections have not been setup.')
+        arguments[injection] = _TEST_SCOPE[injection]()
+      else:
+        arguments[injection] = injection_scope_map[injection].callable()
+    except KeyError:
       raise ValueError('The injectable named %r was not found.' % injection)
 
 
@@ -463,40 +466,19 @@ def SetTestMode(enabled=True):
   _IN_TEST_MODE = enabled
 
 
-def _WrapClassForTestInjections(cls):
-  """Creates a wrapper for injecting during tests.
-
-  Args:
-    cls: The class where the test "injections" exist.
-  Returns:
-    A callable wrapper for init.
-  """
-  init = cls.__init__
-  if hasattr(init, 'ioc_test_wrapper'):
-    return init
-  @functools.wraps(init)
-  def Wrapper(*args, **kwargs):
-    injections = cls.ioc_test_injections.copy()
-    injections.update(kwargs)
-    return init(*args, **injections)
-  Wrapper.ioc_test_wrapper = True
-  cls.__init__ = Wrapper
+def SetUpTestInjections(**kwargs):
+  global _TEST_SCOPE
+  _TEST_SCOPE = _Scope(None)
+  for name, value in kwargs.iteritems():
+    def Callable():
+      return value
+    Callable.__name__ = name
+    _TEST_SCOPE.Injectable(Callable)
 
 
-def SetClassInjections(cls, **kwargs):
-  """Set default test injection args for a class.
-
-  This function only affects __init__ methods of and should be reserved for use
-  with super classes that are called from one of their sub classes with super().
-  Any other use is not recommended.
-
-  Args:
-    cls: The class for which we'll set default test injection arguments.
-    **kwargs: The arguments to set as defaults.
-  """
-  assert _IN_TEST_MODE, 'You may only set class injection args in test mode.'
-  _WrapClassForTestInjections(cls)
-  cls.ioc_test_injections = kwargs
+def TearDownTestInjections():
+  global _TEST_SCOPE
+  _TEST_SCOPE = None
 
 
 _ROOT_SCOPE = _Scope(None)  # Create Root scope

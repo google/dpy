@@ -215,10 +215,30 @@ class IocTestMode(Describe):
     expect(self.injected_func(val=99)).toBe(99)
 
   def it_should_not_inject(self):
-    expect(self.injected_func).toRaise(ioc.InjectionDuringTestError)
+    expect(self.injected_func).toRaise(ValueError)
+
+  def it_should_raise_missing_injection_errors(self):
+    ioc.SetUpTestInjections(foo=32)
+    expect(self.injected_func).toRaise(ValueError)
 
   def it_should_allow_passing_none(self):
     expect(self.injected_func(val=None)).toBeNone()
+
+  def it_should_support_overwriting_test_scope(self):
+    ioc.SetUpTestInjections(val=32)
+    expect(self.injected_func()).toBe(32)
+    ioc.SetUpTestInjections(val=99)
+    expect(self.injected_func()).toBe(99)
+
+  def it_should_support_clearing_test_scope(self):
+    ioc.SetUpTestInjections(val=32)
+    ioc.TearDownTestInjections()
+    expect(self.injected_func).toRaise(ValueError)
+
+
+  def it_should_support_injecting_functions(self):
+    ioc.SetUpTestInjections(val=32)
+    expect(self.injected_func()).toBe(32)
 
   def it_should_support_super_class_testing(self):
 
@@ -234,7 +254,7 @@ class IocTestMode(Describe):
       def __init__(self):
         super(Bar, self).__init__()
 
-    ioc.SetClassInjections(Foo, baz=32)
+    ioc.SetUpTestInjections(baz=32)
     ioc.Injectable.value(baz=42)
 
     b = Bar()
