@@ -376,30 +376,6 @@ class IocSingleton(Describe):
     expect(spy.call_count).toBe(1)
 
 
-  class InjectableClass(Describe):
-
-    def it_should_inject(self):
-      @ioc.Inject
-      class RootInstance(object):
-        def __init__(self, parent_singleton=ioc.IN):
-          self.value = parent_singleton.value
-
-      @ioc.Injectable.named('parent_singleton')
-      @ioc.Singleton
-      class ParentSingleton(object):
-        def __init__(self, leaf_instance=ioc.IN):
-          self.value = leaf_instance.value
-
-      @ioc.Injectable.named('leaf_instance')
-      class LeafInstance(object):
-        value = 'Leaf Instance'
-
-        def __init__(self):
-          pass
-
-      expect(RootInstance().value).toBe(LeafInstance.value)
-
-
   class ScopedSingletonClass(Describe):
 
     def before_each(self):
@@ -475,6 +451,28 @@ class IocSingleton(Describe):
         expect(GetSingleton).toRaise(ValueError)
 
       ParentScope()
+
+    def it_should_inject(self):
+      @ioc.Inject
+      class RootInstance(object):
+        def __init__(self, parent=ioc.IN):
+          self.value = parent.value
+
+      @ioc.Injectable.named('parent')
+      @ioc.Singleton
+      class ParentSingleton(object):
+        def __init__(self, leaf_instance=ioc.IN):
+          self.value = leaf_instance.value
+
+      @ioc.Injectable.named('leaf_instance')
+      class LeafInstance(object):
+        value = 'Leaf Instance'
+
+        def __init__(self):
+          pass
+
+      expect(RootInstance().value).toBe(LeafInstance.value)
+
 
   class ScopedSingletonFunction(Describe):
 
