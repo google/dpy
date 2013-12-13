@@ -452,7 +452,7 @@ class IocSingleton(Describe):
 
       ParentScope()
 
-    def it_should_inject(self):
+    def it_should_save_injectable_singleton_class(self):
       @ioc.Inject
       class RootInstance(object):
         def __init__(self, parent=ioc.IN):
