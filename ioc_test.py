@@ -452,6 +452,28 @@ class IocSingleton(Describe):
 
       ParentScope()
 
+    def it_should_save_injectable_singleton_class(self):
+      @ioc.Inject
+      class RootInstance(object):
+        def __init__(self, parent=ioc.IN):
+          self.value = parent.value
+
+      @ioc.Injectable.named('parent')
+      @ioc.Singleton
+      class ParentSingleton(object):
+        def __init__(self, leaf_instance=ioc.IN):
+          self.value = leaf_instance.value
+
+      @ioc.Injectable.named('leaf_instance')
+      class LeafInstance(object):
+        value = 'Leaf Instance'
+
+        def __init__(self):
+          pass
+
+      expect(RootInstance().value).toBe(LeafInstance.value)
+
+
   class ScopedSingletonFunction(Describe):
 
     def before_each(self):

@@ -193,7 +193,10 @@ def _CalculateScopeDep(injections):
     # Get all injections and put into queue.
     while hasattr(callable_func, 'ioc_wrapper'):
       callable_func = callable_func.ioc_wrapper  # Get the original callable.
-    argspec = inspect.getargspec(callable_func)
+    if inspect.isclass(callable_func):
+      argspec = inspect.getargspec(callable_func.__init__)
+    else:
+      argspec = inspect.getargspec(callable_func)
     injection_queue.extend(_GetInjections(argspec))
 
     if idx < dep_scope_idx:
