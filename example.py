@@ -43,24 +43,31 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
     parsed = urlparse.urlparse(self.path)
     params = urlparse.parse_qs(parsed.query)
 
-    # Inject request scoped shared variable.
-    ioc.Injectable.value('params', params)
+    # Create injectable scoped to the function do_GET.
+    ioc.Injectable.value(params=params)
 
     self.wfile.write(Hello())
 
 
-def RunServer():
-  port = 8000
-  httpd = BaseHTTPServer.HTTPServer(('', port), Handler)
-  logging.info('Server running on port: %s', port)
-  httpd.serve_forever()
+@ioc.Injectable
+@ioc.Singleton
+def Server(port=ioc.IN):
+  logging.info('Creating server on port: %s', port)
+  return BaseHTTPServer.HTTPServer(('', port), Handler)
+
+
+@ioc.Inject
+def RunServer(Server=ioc.IN):
+  Server.serve_forever()
 
 
 def main():
-  # Injecting global constant
-  ioc.Injectable.value('app_name', 'Hello pyoc')
-  ioc.Warmup()
-  ioc.DumpInjectionStack()
+  # Creating global constant injectable
+  ioc.Injectable.value(app_name='Hello pyoc')
+  ioc.Injectable.value(port=8000)
+  ioc.Warmup()  # Start eager singletons
+  ioc.DumpInjectionStack()  # Debug information
+
   RunServer()
 
 
