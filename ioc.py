@@ -8,7 +8,7 @@ Example:
   def user():
     return 'Anonymous'
 
-  pyoc.Injectable.value('greet', 'Hello')
+  pyoc.Injectable.value(greet='Hello')
 
   @pyoc.Inject
   def Hello(greet=ioc.IN, user=ioc.IN):
