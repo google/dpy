@@ -209,6 +209,12 @@ class IocTestMode(Describe):
     self.injected_func = InjectedFunc
     self.injected_value = 42
 
+    @ioc.Inject
+    def MultiInjectedFunc(val=ioc.IN, add_val=ioc.IN):
+      return val, add_val
+
+    self.multi_injected_func = MultiInjectedFunc
+
     ioc.Injectable.value(val=self.injected_value)
 
   def it_should_allow_passing_args(self):
@@ -224,11 +230,21 @@ class IocTestMode(Describe):
   def it_should_allow_passing_none(self):
     expect(self.injected_func(val=None)).toBeNone()
 
+  def it_should_support_setting_multiple_test_injections(self):
+    ioc.SetUpTestInjections(val=32, add_val=64)
+    expect(self.multi_injected_func()).toEqual((32, 64))
+
   def it_should_support_overwriting_test_scope(self):
     ioc.SetUpTestInjections(val=32)
     expect(self.injected_func()).toBe(32)
     ioc.SetUpTestInjections(val=99)
     expect(self.injected_func()).toBe(99)
+
+  def it_should_support_adding_to_test_scope(self):
+    ioc.SetUpTestInjections(val=32)
+    expect(self.injected_func()).toBe(32)
+    ioc.SetUpTestInjections(add_val=64)
+    expect(self.multi_injected_func()).toEqual((32, 64))
 
   def it_should_support_clearing_test_scope(self):
     ioc.SetUpTestInjections(val=32)
