@@ -409,11 +409,7 @@ def _InjectableValue(**kwargs):
   """
   assert len(kwargs) == 1, 'You can only create one injectable value at a time.'
   name, ioc_value = kwargs.popitem()
-
-  def Callable():
-    return ioc_value
-  Callable.__name__ = name
-  Injectable(Callable)
+  Injectable(_CreateCallable(name, ioc_value))
 Injectable.value = _InjectableValue
 
 
@@ -482,12 +478,16 @@ def SetUpTestInjections(**kwargs):
     **kwargs: name and values for the injectables to be created.
   """
   global _TEST_SCOPE
-  _TEST_SCOPE = _Scope(None)
+  _TEST_SCOPE = _TEST_SCOPE or _Scope(None)
   for name, value in kwargs.iteritems():
-    def Callable():
-      return value
-    Callable.__name__ = name
-    _TEST_SCOPE.Injectable(Callable)
+    _TEST_SCOPE.Injectable(_CreateCallable(name, value))
+
+
+def _CreateCallable(name, value):
+  def Callable():
+    return value
+  Callable.__name__ = name
+  return Callable
 
 
 def TearDownTestInjections():
