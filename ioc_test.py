@@ -173,6 +173,13 @@ class Ioc(Describe):
       return val
     expect(Injected).toRaise(ioc.InjectionMissingError)
 
+  def it_should_allow_override_unprovided_injections(self):
+
+    @ioc.Inject
+    def Injected(val=ioc.IN):
+      return val
+    expect(Injected(val=42)).toEqual(42)
+
   def it_should_not_mangle_classes(self):
 
     @ioc.Inject
