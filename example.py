@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""A simple example using pyoc.
+"""A simple example using dpy.
 
   This example run a simple webserver that isolate the parameter injection out
   of the actual logic. The real logic method Hello is not depending on any of
@@ -63,7 +63,7 @@ def RunServer(Server=ioc.IN):
 
 def main():
   # Creating global constant injectable
-  ioc.Injectable.value(app_name='Hello pyoc')
+  ioc.Injectable.value(app_name='Hello dpy')
   ioc.Injectable.value(port=8000)
   ioc.Warmup()  # Start eager singletons
   ioc.DumpInjectionStack()  # Debug information
