@@ -1,16 +1,16 @@
-"""pyoc is a simple, thread-safe, Python dependency injection library.
+"""dpy is a simple, thread-safe, Python dependency injection library.
 
-pyoc is designed to easily allow inversion of control without messy overhead.
+dpy is designed to easily allow inversion of control without messy overhead.
 It is quick to define and use injectable objects in your code.
 
 Example:
-  @pyoc.Injectable
+  @dpy.Injectable
   def user():
     return 'Anonymous'
 
-  pyoc.Injectable.value(greet='Hello')
+  dpy.Injectable.value(greet='Hello')
 
-  @pyoc.Inject
+  @dpy.Inject
   def Hello(greet=ioc.IN, user=ioc.IN):
     return '%s %s' % (greet, user)
 
@@ -344,7 +344,7 @@ def _Inject(f):
     f: Function to inject into.
 
   Returns:
-    Return a wrapped function of the original one with all the pyoc.IN value
+    Return a wrapped function of the original one with all the dpy.IN value
     being fill in the real values.
   Raises:
     ValueError: If the argument is not a callable or is already injected.
