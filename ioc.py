@@ -23,7 +23,13 @@ import logging
 import threading
 
 
-IN = INJECTED = object()
+class _InjectionSentinel(object):
+
+  def __getattribute__(self, _):
+    raise Exception('You forgot to mark something with @Inject')
+
+
+IN = INJECTED = _InjectionSentinel()
 _IN_TEST_MODE = False
 _TEST_SCOPE = None
 

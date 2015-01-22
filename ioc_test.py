@@ -203,6 +203,15 @@ class Ioc(Describe):
     expect(Bar().bar).toBe(3)
 
 
+class IocInjectionSentinel(Describe):
+
+  def it_should_raise_when_attrs_are_accessed(self):
+
+    def InjectedFunc(val=ioc.IN):
+      return val.Foo()
+
+    expect(InjectedFunc).toRaise()
+
 class IocTestMode(Describe):
 
   def before_each(self):
