@@ -29,7 +29,7 @@ def greet(params=ioc.IN):
 
 
 @ioc.Inject
-def Hello(greet=ioc.IN, app_name=ioc.IN, user=ioc.IN):
+def hello(greet=ioc.IN, app_name=ioc.IN, user=ioc.IN):
   return '<p>%s: %s %s</p>' % (app_name, greet, user)
 
 
@@ -46,19 +46,19 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
     # Create injectable scoped to the function do_GET.
     ioc.Injectable.value(params=params)
 
-    self.wfile.write(Hello())
+    self.wfile.write(hello())
 
 
 @ioc.Injectable
 @ioc.Singleton
-def Server(port=ioc.IN):
+def server(port=ioc.IN):
   logging.info('Creating server on port: %s', port)
   return BaseHTTPServer.HTTPServer(('', port), Handler)
 
 
 @ioc.Inject
-def RunServer(Server=ioc.IN):
-  Server.serve_forever()
+def runServer(server=ioc.IN):
+  server.serve_forever()
 
 
 def main():
@@ -68,7 +68,7 @@ def main():
   ioc.Warmup()  # Start eager singletons
   ioc.DumpInjectionStack()  # Debug information
 
-  RunServer()
+  runServer()
 
 
 if __name__ == '__main__':
