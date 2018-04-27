@@ -4,7 +4,7 @@
 
 ## Overview
 
-**dPy** is a simple dependency injection libary with serious power.
+**dPy** is a simple dependency injection library with serious power.
 
 Yes, Python is a dynamic language so dependency injection is not necessary and might seem silly... but injection of components provides more than just the ability to test statically typed languages. It can make your code clearer, assist developers with straightforward modularization, and make testing super simple. Take a look at the examples below to see how your code can be transformed.
 
