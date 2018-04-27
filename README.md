@@ -6,84 +6,87 @@
 
 **dPy** is a simple dependency injection libary with serious power.
 
-Yes, Python is a dynamic language so dependency injection is not necessary, but injection provides more than just the ability to test static languages. It makes your code clearer, assists developers with straightforward modularization, and makes testing extremely simple. With dPy, the effects are even clearer.
+Yes, Python is a dynamic language so dependency injection is not necessary and might seem silly... but injection of components provides more than just the ability to test statically typed languages. It can make your code clearer, assist developers with straightforward modularization, and make testing super simple. Take a look at the examples below to see how your code can be transformed.
 
 ## Examples
-Here are some straightforward examples for using dPy. For a complete, working example, check out `example.py`.
+Below are some simple examples for using dPy. For a complete usage example set that alse runs, check out `example.py`.
 
 ### Simple
 Any argument can be turned into an injected argument.
 
-    import dpy
+    from dpy import IN, Injectable
     
-    def Go(where=dpy.IN):  # Go is fully injected!
-      # Do something here...
+    def Go(where=IN):  # Go is fully injected!
+      print 'Hello ' + where
     
-    dpy.Injectable.value(where='here')
+    Injectable.value(where='World')
     
-    Go()  # Invokes Go(where='here')
+    Go()  # Invokes the function `Go` which the argument `where`=='World'.
+    # "Hello World" is printed. Just like if we had done Go("World") or Go(where="World")
 
 ### Mixed
-You don't have to have all of your arguments injected!
+You don't have to inject all of your arguments!
 
-    import dpy
+    from dpy import IN, Injectable
     
-    def Go(when, how=TRAIN, where=dpy.IN):  # Partial injection
-      # Do something here...
+    def Go(when, how='train', where=IN):  # Partial injection
+      print 'We need the %s %s, %s!' % (where, how, when)
     
-    dpy.Injectable.value(where='here')
+    Injectable.value(where='California')
     
-    Go('now', how=CAR)  # Invokes Go('now', how='car', where='here')
+    Go('now', how='car')  # Invokes the function `Go` with `when`=='now', `how`=='car', and `where`=='here'.
+    # "We need the California car, now!" is printed.
 
 ### Scoped
-When creating servers or other designs which revisit code (e.g. threads), you may want to swap out injections, scoping them to a particular stack. If you don't use a scope, it's an error to set the same injectable key more than once!
+When creating servers or other designs which revisit code (i.e. threads), you may want to swap out injections, scoping them to a particular stack. If you don't use a scope, it's an error to set the same injectable key more than once!
 
-    import dpy
+    from dpy import IN, Injectable, Scope
     
-    def Go(when, how=TRAIN, where=dpy.IN):  # Partial injection
-      # Do something here...
+    def Go(where=IN):
+      print 'Hello ' + where
     
-    @dpy.Scope
+    @Scope
     def HandleRequest(request):
-      dpy.Injectable.value(where=request.destination)
-      Go()  # Invokes Go(where=request.destination)
+      Injectable.value(where=request.destination)
+      Go()  # Invokes the function `Go` with `where`==request.destination.
 
 ### Injection Types
 There are different ways to specify injectables.
 
-    import dpy
+    from dpy import Injectable, Singleton
     
-    dpy.Injectable.value(foo=Object())
-    # 1) This is the simplest way to create an injectable value.
-    # When injecting the key `foo`, it will always _be_ that object.
+    Injectable.value(foo=object())
+    # 1) Provides an injectable `foo`.
+    # This is the simplest way to create an injectable value.
+    # When injecting the key `foo`, it will always _be_ (i.e. `is`) the same object.
     # In effect, the injectable `foo` is a singleton object.
     
-    @dpy.Injectable
-    def Foo():
-      """2) Provides an injectable `Foo`.
+    @Injectable
+    def bar():
+      """2) Provides an injectable `bar`.
       
-      This function is run for each function requesting a `Foo`.
-      In effect, no two injections of `Foo` will be the same object.
+      This function is run each time a `bar` injection is needed.
+      In effect, no two injections of `bar` will ever be (i.e. `is`) the same object.
       """
-      return Object()
+      return object()
     
-    @dpy.Injectable
-    @dpy.Singleton
-    def Bar():
-      """3) Provides a singleton injectable `Bar`.
+    @Injectable
+    @Singleton
+    def cat():
+      """3) Provides a singleton injectable `cat`.
       
-      This function is only run once, no matter how many times a `Bar`
-      is requested for injection. The return value is stored.
+      This function is only run once, no matter how many times the `cat` injection
+      is needed. The return value is stored and the same value is returned each time.
       In effect, this is a lazily initialized version of #1.
       """
       return Object()
     
-    @dpy.Injectable.named('bar')
-    def ProvideBar():
-      """Provides an injectable `bar`.
+    @Injectable.named('dog')
+    def ProvidePitbull():
+      """Provides an injectable `dog`.
       
       This is functionally equivalent to #2. The only difference is
-      the injectable key has been explicity set to `bar` instead of
+      the injectable key has been explicity set to `dog` instead of
       inferred from the function name.
       """
       return Object()
@@ -91,30 +94,37 @@ There are different ways to specify injectables.
 ## Modules?
 Injection modules? We don't need no stinking injection modules.
 
-In dPy, Python modules serve as our injection modules. Provide whatever you want in your regular ol' module and when you want to switch out the implementation, you can just switch which module you import.
+In dPy, Python modules serve as our injection modules. Provide whatever you want in your regular ol' module using the methods above and when you want to switch out the implementation, you can just switch which module you import.
 
-Of course, you may setup injectables behind conditionals if you want.
+Of course, you can also setup injectables behind conditionals if you like.
+
+Modules may import their own dependencies or you might prefer to defer importing all your dependencies in a "main" module (or other organization). As long as all the dependencies are established at runtime, there's no problem.
     
 ## Testing
-Testing is really simple in dPy. The only concept of modules is the same concept as regular Python. There are no special injection modules. For an example test, check out `example_test.py`.
+Testing is quite simple in dPy. The only concept dPy has of modules is as regular Python modules. There are no special injection modules. For a full, working example test, check out `example_test.py`.
 
-Normally, you may not call a function and override its injectable values. e.g. The following is an error:
+Normally, you may not call a function and override its injectable arguments. i.e. The following is an error:
 
-    def Foo(bar=dpy.IN):
-      # ...
+    @Inject
+    def Foo(bar=IN): pass
+
     Foo(bar=42)
     
-In test mode, this is not true. You may simply set any injectable value to whatever you want to test. In fact, using real injections in disallowed in test mode!
+In test mode, this is not the case.
+You simply set injectable values to whatever you want.
+In fact, using real injections in _not_ allowed in test mode!
 
 ### Enable test mode
-Enabling test mode is one call in your tests.
+Enabling test mode is one call in your test.
+It may not be turned off once enabled, so feel free to put it at the top level of your test module.
 
-    dpy.SetTestMode()
+    SetTestMode()
 
 ### Setup test mode injections
-Setting up your injectables for test in one call, too!
+You might need to create special test injections depending on how you've structured your code.
+Setting them up is straight-forward:
 
-    dpy.SetUpTestInjecitons(
+    SetUpTestInjecitons(
         foo=42,
         bar=1337,
     )
