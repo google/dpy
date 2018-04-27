@@ -62,7 +62,7 @@ There are different ways to specify injectables.
     def Foo():
       """2) Provides an injectable `Foo`.
       
-      This function is ran for each function requesting a `Foo`.
+      This function is run for each function requesting a `Foo`.
       In effect, no two injections of `Foo` will be the same object.
       """
       return Object()
@@ -72,7 +72,7 @@ There are different ways to specify injectables.
     def Bar():
       """3) Provides a singleton injectable `Bar`.
       
-      This function is only ran once, no matter how many times a `Bar`
+      This function is only run once, no matter how many times a `Bar`
       is requested for injection. The return value is stored.
       In effect, this is a lazily initialized version of #1.
       """
@@ -82,7 +82,7 @@ There are different ways to specify injectables.
     def ProvideBar():
       """Provides an injectable `bar`.
       
-      This is functionally equivalent to #2. The only differenc is
+      This is functionally equivalent to #2. The only difference is
       the injectable key has been explicity set to `bar` instead of
       inferred from the function name.
       """
