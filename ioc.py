@@ -46,11 +46,23 @@ class TestInjectionsNotSetupError(Error):
 
 
 class _InjectionSentinel(object):
-
-  def __getattribute__(self, _):
+  
+  def _DO_NOT_USE_INJECTION_SENTINEL(self):
     if _IN_TEST_MODE:
       raise TestInjectionsNotSetupError('Injection was expected in test mode!')
     raise InjectionNotPerformed('You forgot to mark something with @Inject or @Injectable.')
+  
+  def __call__(self):
+    self._DO_NOT_USE_INJECTION_SENTINEL()
+  
+  def __len__(self):
+    self._DO_NOT_USE_INJECTION_SENTINEL()
+  
+  def __str__(self):
+    self._DO_NOT_USE_INJECTION_SENTINEL()
+
+  def __getattr__(self, _):
+    self._DO_NOT_USE_INJECTION_SENTINEL()
 
 
 IN = INJECTED = _InjectionSentinel()
