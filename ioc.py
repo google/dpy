@@ -23,13 +23,6 @@ import logging
 import threading
 
 
-class _InjectionSentinel(object):
-
-  def __getattribute__(self, _):
-    raise Exception('You forgot to mark something with @Inject')
-
-
-IN = INJECTED = _InjectionSentinel()
 _IN_TEST_MODE = False
 _TEST_SCOPE = None
 
@@ -44,9 +37,23 @@ class Error(Exception):
 class InjectionMissingError(Error):
   """When an injection is requested, but not available."""
 
+class InjectionNotPerformed(Error):
+  """When an injection is requested, but the callable is not injected."""
+
 
 class TestInjectionsNotSetupError(Error):
   """When injection is requested without a set up test scope."""
+
+
+class _InjectionSentinel(object):
+
+  def __getattribute__(self, _):
+    if _IN_TEST_MODE:
+      raise TestInjectionsNotSetupError('Injection was expected in test mode!')
+    raise InjectionNotPerformed('You forgot to mark something with @Inject or @Injectable.')
+
+
+IN = INJECTED = _InjectionSentinel()
 
 
 class _Scope(object):
