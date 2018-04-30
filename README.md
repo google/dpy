@@ -27,7 +27,7 @@ Go()  # Invokes the function `Go` which the argument `where`=='World'.
 # "Hello World" is printed. Just like if we had done Go("World") or Go(where="World")
 ```
 
-### Mixed
+### Mixing
 You don't have to inject all of your arguments!
 
 ```py
@@ -43,8 +43,11 @@ Go('now', how='car')  # Invokes the function `Go` with `when`=='now', `how`=='ca
 # "We need the California car, now!" is printed.
 ```
 
-### Scoped
-When creating servers or other designs which revisit code (i.e. threads), you may want to swap out injections, scoping them to a particular stack. If you don't use a scope, it's an error to set the same injectable key more than once!
+### Scoping
+Scopes are useful when creating servers or threaded designs that revisit the same code with different data.
+You'll probably want to swap out injections, scoping them to a particular stack or thread.
+As you would hope, they use the current scope when they are requested (not the one in which they were defined).
+If not using scopes, it's an error to set the same injectable key more than once!
 
 ```py
 from dpy import IN, Inject, Injectable, Scope
@@ -58,6 +61,8 @@ def HandleRequest(request):
   Injectable.value(where=request.destination)
   Go()  # Invokes the function `Go` with `where`==request.destination.
 ```
+
+Singletons have the behavior you would expect; they are single to their scope branch.
 
 ### Injection Types
 There are different ways to specify injectables.
