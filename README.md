@@ -14,82 +14,90 @@ Below are some simple examples for using dPy. For a complete usage example set t
 ### Simple
 Any argument can be turned into an injected argument.
 
-    from dpy import IN, Injectable
-    
-    def Go(where=IN):  # Go is fully injected!
-      print 'Hello ' + where
-    
-    Injectable.value(where='World')
-    
-    Go()  # Invokes the function `Go` which the argument `where`=='World'.
-    # "Hello World" is printed. Just like if we had done Go("World") or Go(where="World")
+```py
+from dpy import IN, Injectable
+
+def Go(where=IN):  # Go is fully injected!
+  print 'Hello ' + where
+
+Injectable.value(where='World')
+
+Go()  # Invokes the function `Go` which the argument `where`=='World'.
+# "Hello World" is printed. Just like if we had done Go("World") or Go(where="World")
+```
 
 ### Mixed
 You don't have to inject all of your arguments!
 
-    from dpy import IN, Injectable
-    
-    def Go(when, how='train', where=IN):  # Partial injection
-      print 'We need the %s %s, %s!' % (where, how, when)
-    
-    Injectable.value(where='California')
-    
-    Go('now', how='car')  # Invokes the function `Go` with `when`=='now', `how`=='car', and `where`=='here'.
-    # "We need the California car, now!" is printed.
+```py
+from dpy import IN, Injectable
+
+def Go(when, how='train', where=IN):  # Partial injection
+  print 'We need the %s %s, %s!' % (where, how, when)
+
+Injectable.value(where='California')
+
+Go('now', how='car')  # Invokes the function `Go` with `when`=='now', `how`=='car', and `where`=='here'.
+# "We need the California car, now!" is printed.
+```
 
 ### Scoped
 When creating servers or other designs which revisit code (i.e. threads), you may want to swap out injections, scoping them to a particular stack. If you don't use a scope, it's an error to set the same injectable key more than once!
 
-    from dpy import IN, Injectable, Scope
-    
-    def Go(where=IN):
-      print 'Hello ' + where
-    
-    @Scope
-    def HandleRequest(request):
-      Injectable.value(where=request.destination)
-      Go()  # Invokes the function `Go` with `where`==request.destination.
+```py
+from dpy import IN, Injectable, Scope
+
+def Go(where=IN):
+  print 'Hello ' + where
+
+@Scope
+def HandleRequest(request):
+  Injectable.value(where=request.destination)
+  Go()  # Invokes the function `Go` with `where`==request.destination.
+```
 
 ### Injection Types
 There are different ways to specify injectables.
 
-    from dpy import Injectable, Singleton
-    
-    Injectable.value(foo=object())
-    # 1) Provides an injectable `foo`.
-    # This is the simplest way to create an injectable value.
-    # When injecting the key `foo`, it will always _be_ (i.e. `is`) the same object.
-    # In effect, the injectable `foo` is a singleton object.
-    
-    @Injectable
-    def bar():
-      """2) Provides an injectable `bar`.
-      
-      This function is run each time a `bar` injection is needed.
-      In effect, no two injections of `bar` will ever be (i.e. `is`) the same object.
-      """
-      return object()
-    
-    @Injectable
-    @Singleton
-    def cat():
-      """3) Provides a singleton injectable `cat`.
-      
-      This function is only run once, no matter how many times the `cat` injection
-      is needed. The return value is stored and the same value is returned each time.
-      In effect, this is a lazily initialized version of #1.
-      """
-      return Object()
-    
-    @Injectable.named('dog')
-    def ProvidePitbull():
-      """Provides an injectable `dog`.
-      
-      This is functionally equivalent to #2. The only difference is
-      the injectable key has been explicity set to `dog` instead of
-      inferred from the function name.
-      """
-      return Object()
+```
+from dpy import Injectable, Singleton
+
+Injectable.value(foo=object())
+# 1) Provides an injectable `foo`.
+# This is the simplest way to create an injectable value.
+# When injecting the key `foo`, it will always _be_ (i.e. `is`) the same object.
+# In effect, the injectable `foo` is a singleton object.
+
+@Injectable
+def bar():
+  """2) Provides an injectable `bar`.
+
+  This function is run each time a `bar` injection is needed.
+  In effect, no two injections of `bar` will ever be (i.e. `is`) the same object.
+  """
+  return object()
+
+@Injectable
+@Singleton
+def cat():
+  """3) Provides a singleton injectable `cat`.
+
+  This function is only run once, no matter how many times the `cat` injection
+  is needed. The return value is stored and the same value is returned each time.
+  In effect, this is a lazily initialized version of #1.
+  """
+  return Object()
+
+@Injectable.named('dog')
+def ProvidePitbull():
+  """Provides an injectable `dog`.
+
+  This is functionally equivalent to #2. The only difference is
+  the injectable key has been explicity set to `dog` instead of
+  inferred from the function name.
+  """
+  return Object()
+```
 
 ## Modules?
 Injection modules? We don't need no stinking injection modules.
@@ -107,15 +115,17 @@ In the normal mode, injections are automatically passed in for you to things lab
 In test mode, this functionality is turned off!
 Only normal arguments, or _specifically_ test injections may be used in test.
 
-    @Injectable.value('bar', 'cat')
+```py
+@Injectable.value('bar', 'cat')
 
-    @Inject
-    def Foo(bar=IN): print(len(bar))
+@Inject
+def Foo(bar=IN): print(len(bar))
 
-    Foo()  # Normally, this prints `3`
-    # In test mode, this would raise an exception about expecting injection to occur.
+Foo()  # Normally, this prints `3`
+# In test mode, this would raise an exception about expecting injection to occur.
 
-    Foo(bar='test')  # In test mode (and normal mode), this prints `4`
+Foo(bar='test')  # In test mode (and normal mode), this prints `4`
+```
     
 tl;dr: Using real injections is _not_ allowed in test mode!
 
@@ -123,16 +133,20 @@ tl;dr: Using real injections is _not_ allowed in test mode!
 Enabling test mode is one call in your test.
 It may not be turned off once enabled, so feel free to put it at the top level of your test module.
 
-    SetTestMode()
+```py
+SetTestMode()
+```
 
 ### Setup test mode injections
 You might need to create special test injections depending on how you've structured your code.
 Setting them up is straight-forward:
 
-    SetUpTestInjecitons(
-        foo=42,
-        bar=1337,
-    )
+```py
+SetUpTestInjecitons(
+    foo=42,
+    bar=1337,
+)
+```
 
 See the best practices section for a warning about this, though.
 
