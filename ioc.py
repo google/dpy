@@ -37,6 +37,7 @@ class Error(Exception):
 class InjectionMissingError(Error):
   """When an injection is requested, but not available."""
 
+
 class InjectionNotPerformed(Error):
   """When an injection is requested, but the callable is not injected."""
 
@@ -145,6 +146,11 @@ class _Scope(object):
   def __exit__(self, t, v, tb):
     _ResetInjectionScopeMap()
     _MyScopes().pop()
+
+
+_ROOT_SCOPE = _Scope(None)  # Create Root scope
+_BASE_SCOPES = [_ROOT_SCOPE]
+_DATA.scopes = _BASE_SCOPES
 
 
 def _MyScopes():
@@ -519,8 +525,3 @@ def TearDownTestInjections():
   """Tears down any injections set up for testing."""
   global _TEST_SCOPE
   _TEST_SCOPE = None
-
-
-_ROOT_SCOPE = _Scope(None)  # Create Root scope
-_BASE_SCOPES = [_ROOT_SCOPE]
-_DATA.scopes = _BASE_SCOPES
