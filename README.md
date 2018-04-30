@@ -103,16 +103,21 @@ Modules may import their own dependencies or you might prefer to defer importing
 ## Testing
 Testing is quite simple in dPy. The only concept dPy has of modules is as regular Python modules. There are no special injection modules. For a full, working example test, check out `example_test.py`.
 
-Normally, you may not call a function and override its injectable arguments. i.e. The following is an error:
+In the normal mode, injections are automatically passed in for you to things labeled `Inject` or `Injectable`.
+In test mode, this functionality is turned off!
+Only normal arguments, or _specifically_ test injections may be used in test.
+
+    @Injectable.value('bar', 'cat')
 
     @Inject
-    def Foo(bar=IN): pass
+    def Foo(bar=IN): print(len(bar))
 
-    Foo(bar=42)
+    Foo()  # Normally, this prints `3`
+    # In test mode, this would raise an exception about expecting injection to occur.
+
+    Foo(bar='test')  # In test mode (and normal mode), this prints `4`
     
-In test mode, this is not the case.
-You simply set injectable values to whatever you want.
-In fact, using real injections in _not_ allowed in test mode!
+tl;dr: Using real injections is _not_ allowed in test mode!
 
 ### Enable test mode
 Enabling test mode is one call in your test.
