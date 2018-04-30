@@ -15,8 +15,9 @@ Below are some simple examples for using dPy. For a complete usage example set t
 Any argument can be turned into an injected argument.
 
 ```py
-from dpy import IN, Injectable
+from dpy import IN, Inject, Injectable
 
+@Inject
 def Go(where=IN):  # Go is fully injected!
   print 'Hello ' + where
 
@@ -30,8 +31,9 @@ Go()  # Invokes the function `Go` which the argument `where`=='World'.
 You don't have to inject all of your arguments!
 
 ```py
-from dpy import IN, Injectable
+from dpy import IN, Inject, Injectable
 
+@Inject
 def Go(when, how='train', where=IN):  # Partial injection
   print 'We need the %s %s, %s!' % (where, how, when)
 
@@ -45,8 +47,9 @@ Go('now', how='car')  # Invokes the function `Go` with `when`=='now', `how`=='ca
 When creating servers or other designs which revisit code (i.e. threads), you may want to swap out injections, scoping them to a particular stack. If you don't use a scope, it's an error to set the same injectable key more than once!
 
 ```py
-from dpy import IN, Injectable, Scope
+from dpy import IN, Inject, Injectable, Scope
 
+@Inject
 def Go(where=IN):
   print 'Hello ' + where
 
@@ -59,7 +62,7 @@ def HandleRequest(request):
 ### Injection Types
 There are different ways to specify injectables.
 
-```
+```py
 from dpy import Injectable, Singleton
 
 Injectable.value(foo=object())
